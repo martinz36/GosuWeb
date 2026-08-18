@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   GOSU® OFFICIAL DESIGN TOKENS SYSTEM
+   Extracted directly from Framer Project Export
+   ========================================================================== */
+
+/* 1. Font Definitions */
+@font-face {
+  font-family: "Sigher Regular";
+  src: url("https://framerusercontent.com/assets/xKv3JbRdBRHLUn7vEoS4UNxeXjA.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Open Sauce One";
+  src: url("https://framerusercontent.com/assets/VLbJ2l4cAnezt7ivj9U98RLcUdA.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 500;
+}
+
+/* 2. CSS Design Tokens Variables */
+:root {
+  /* Brand Color Palette */
+  --gosu-bg-main: #000000;
+  --gosu-bg-surface: rgba(14, 14, 18, 0.95);
+  --gosu-bg-card: #09090b;
+  --gosu-bg-elevated: #141418;
+  --gosu-bg-modal: #050505;
+
+  /* Primary Cyber Neons */
+  --gosu-cyan: #00e8ff;
+  --gosu-orange: #ff5c00;
+  --gosu-pink: #ff09bb;
+  --gosu-green: #22ef00;
+  --gosu-yellow: #e4e800;
+  --gosu-blue: #0099ff;
+  --gosu-purple: #8b5cf6;
+
+  /* Neutrals & Text */
+  --gosu-text-primary: #ffffff;
+  --gosu-text-secondary: #9ca3af;
+  --gosu-text-muted: #696969;
+  --gosu-text-inverse: #000000;
+
+  /* Borders */
+  --gosu-border-subtle: rgba(255, 255, 255, 0.08);
+  --gosu-border-medium: rgba(255, 255, 255, 0.14);
+  --gosu-border-active-cyan: #00e8ff;
+  --gosu-border-active-orange: #ff5c00;
+
+  /* Typography Stack */
+  --font-sigher: "Sigher Regular", sans-serif;
+  --font-opensauce: "Open Sauce One", sans-serif;
+  --font-inter: "Inter", sans-serif;
+
+  /* Border Radii */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-full: 100px;
+}
+
+/* 3. Global Reset & Base Styles */
+body {
+  background-color: var(--gosu-bg-main);
+  color: var(--gosu-text-primary);
+  font-family: var(--font-inter);
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom GOSU Dark Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #222222;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gosu-cyan);
+}
+
+/* 4. Typography Utility Classes */
+.font-sigher {
+  font-family: var(--font-sigher);
+}
+
+.font-opensauce {
+  font-family: var(--font-opensauce);
+}
+
+.font-inter {
+  font-family: var(--font-inter);
+}
+
+/* 5. Glow & Lighting Utilities */
+.glow-cyan {
+  text-shadow: 0 0 10px rgba(0, 232, 255, 0.5);
+}
+
+.glow-orange {
+  text-shadow: 0 0 12px rgba(255, 92, 0, 0.6);
+}
+
+.glow-pink {
+  text-shadow: 0 0 10px rgba(255, 9, 187, 0.5);
+}
+
+/* 6. Card & Container Utilities */
+.card-gosu {
+  background-color: var(--gosu-bg-card);
+  border: 1px solid var(--gosu-border-subtle);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-glow-hover:hover {
+  border-color: var(--gosu-cyan);
+  box-shadow: 0 0 20px rgba(0, 232, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* 7. Button Utility Classes */
+.btn-gosu-primary {
+  background-color: #ffffff;
+  color: #000000;
+  font-family: var(--font-opensauce);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  padding: 10px 24px;
+  font-size: 13px;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-gosu-primary:hover {
+  background-color: var(--gosu-cyan);
+  color: #000000;
+  box-shadow: 0 0 15px rgba(0, 232, 255, 0.4);
+  transform: scale(1.02);
+}
+
+.btn-gosu-cyan {
+  background-color: var(--gosu-cyan);
+  color: #000000;
+  font-family: var(--font-opensauce);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  padding: 10px 24px;
+  font-size: 13px;
+  box-shadow: 0 0 12px rgba(0, 232, 255, 0.3);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-gosu-cyan:hover {
+  background-color: #ffffff;
+  color: #000000;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  transform: scale(1.02);
+}
+
+.btn-gosu-orange {
+  background-color: var(--gosu-orange);
+  color: #000000;
+  font-family: var(--font-sigher);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: var(--radius-full);
+  padding: 12px 28px;
+  font-size: 13px;
+  box-shadow: 0 0 20px rgba(255, 92, 0, 0.4);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-gosu-orange:hover {
+  background-color: #ff7a29;
+  box-shadow: 0 0 25px rgba(255, 92, 0, 0.6);
+  transform: scale(1.03);
+}
+
+.btn-gosu-outline {
+  background-color: transparent;
+  color: var(--gosu-text-secondary);
+  border: 1px solid var(--gosu-border-subtle);
+  border-radius: var(--radius-full);
+  padding: 8px 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-gosu-outline:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 8. Badge Utilities */
+.badge-stock {
+  background-color: rgba(34, 239, 0, 0.1);
+  color: var(--gosu-green);
+  border: 1px solid rgba(34, 239, 0, 0.3);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}

@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "aboutUs": "Sobre nosotros",
+    "catalog": "Catálogo",
+    "stores": "Tiendas",
+    "becomePartner": "Sé un socio",
+    "cart": "Carrito"
+  },
+  "hero": {
+    "titleLine1": "PARA AQUELLOS QUE",
+    "titleLine2": "JUEGAN DIFERENTE",
+    "subtitle": "ACCESORIOS DE ALTA CALIDAD DISEÑADOS PARA PROTEGER, OPTIMIZAR Y MOSTRAR TU COLECCIÓN – COMO SE MERECE",
+    "desc1": "Nacido del mundo del TCG competitivo, el coleccionismo hardcore y los fandoms de nicho, GOSU crea equipamiento de alto rendimiento para jugadores que viven por los detalles.",
+    "desc2": "Diseñamos accesorios que protegen, optimizan y elevan tu colección — porque sabemos que cada carta, cada carpeta, cada configuración importa.",
+    "desc3": "GOSU no es solo otra marca de accesorios — es una cultura."
+  },
+  "categories": {
+    "boardSleeves": {
+      "title": "SLEEVES PARA JUEGOS DE MESA",
+      "desc": "Paquetes de 102 unidades, 100 micras de grosor, transparentes y en diferentes tamaños según el juego.",
+      "bullet1": "Protege y extiende la vida de las cartas de tus juegos de mesa.",
+      "bullet2": "Duraderos, LIBRES DE PVC y LIBRES DE ÁCIDO.",
+      "button": "IR AL CATÁLOGO"
+    },
+    "tcgSleeves": {
+      "title": "SLEEVES TCG",
+      "desc": "Paquetes de 102 unidades, 140 micras de grosor, frente transparente y reverso mate con agarre especial para fácil manejo, barajado suave y en hermosos colores con pequeños brillos alrededor.",
+      "bullet1": "Para Magic: The Gathering, Pokémon, One Piece, Digimon, Dragon Ball, etc.",
+      "bullet2": "Duraderos, libres de PVC y libres de ácido.",
+      "bullet3": "Tamaño Estándar (Standard size)",
+      "bullet4": "Tamaño Japonés (Japanese size)",
+      "bullet5": "En 12 colores diferentes"
+    },
+    "innerOver": {
+      "title": "INNER / OVER SLEEVES",
+      "innerTitle": "Inner Sleeves (Fundas Internas)",
+      "innerDesc": "Funda dura de 140 micras, 102 fundas por paquete. Frente transparente y reverso mate transparente diseñado para proteger el color o diseño del sleeve.",
+      "overTitle": "Over Sleeves (Fundas Externas)",
+      "overDesc": "Funda dura para mejor protección, 100 micras, 102 fundas por paquete. Totalmente transparentes y diseñadas para tener un ajuste perfecto a la carta de modo que se pueda insertar luego en un sleeve de color o diseño."
+    },
+    "binders": {
+      "title": "BINDERS (CARPETAS)",
+      "desc": "PRO-Binder de 9 bolsillos con material de malla negra central en relieve que le da a las cartas un aspecto enmarcado clásico. Diseño de carga lateral para evitar que las cartas se caigan fácilmente. La correa elástica sujeta el binder cerrado cuando no está en uso.",
+      "bullet1": "Seguro para archivo (Archival-SAFE), LIBRE DE ÁCIDO.",
+      "bullet2": "MATERIAL NO PVC.",
+      "bullet3": "En 6 colores diferentes"
+    },
+    "deckboxes": {
+      "title": "DECKBOXES (PORTAMAZOS)",
+      "desc": "El Deck Box cuenta con un acabado de cuero sintético premium y un símbolo grabado. Cada deckbox incluye un cierre magnético fuerte con mecanismo de bloqueo para mantener tus cartas guardadas de forma segura cuando no se usan, así como muescas dobles para el pulgar para facilitar el acceso a tu mazo.",
+      "bullet1": "Almacena y protege hasta 100 cartas de tamaño estándar con doble funda (double-sleeved)."
+    }
+  },
+  "cart": {
+    "title": "Tu Carrito",
+    "empty": "Tu carrito está vacío",
+    "total": "Total",
+    "checkout": "Proceder al Pago",
+    "add": "Agregar al carrito",
+    "quantity": "Cantidad",
+    "remove": "Eliminar"
+  },
+  "footer": {
+    "rights": "© 2026 GOSU®. Todos los derechos reservados.",
+    "socials": "SÍGUENOS EN REDES"
+  }
+}

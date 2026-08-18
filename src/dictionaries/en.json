@@ -1,0 +1,67 @@
+{
+  "nav": {
+    "aboutUs": "About us",
+    "catalog": "Catalog",
+    "stores": "Stores",
+    "becomePartner": "Become a partner",
+    "cart": "Cart"
+  },
+  "hero": {
+    "titleLine1": "FOR THOSE WHO PLAY",
+    "titleLine2": "DIFFERENT",
+    "subtitle": "HIGH QUALITY ACCESSORIES DESIGNED TO PROTECT, OPTIMIZE AND FLEX YOUR COLECCTION – LIKE IT DESERVES",
+    "desc1": "Born from the worlds of competitive TCG, hardcore collecting, and niche fandoms, GOSU creates high-performance gear for players who live for the details.",
+    "desc2": "We design accessories that protect, optimize, and elevate your collection — because we know every card, every binder, every setup matters.",
+    "desc3": "GOSU isn’t just another accessory brand — it’s a culture."
+  },
+  "categories": {
+    "boardSleeves": {
+      "title": "BOARD GAME SLEEVES",
+      "desc": "Packs of 102 PCS per pack, 100 microns of thickness, clear transparent comes in different sizes according to the games.",
+      "bullet1": "Protects and extends the life of board game cards.",
+      "bullet2": "Durable, PVC-FREE, and ACID-FREE.",
+      "button": "GO TO CATALOG"
+    },
+    "tcgSleeves": {
+      "title": "TCG SLEEVES",
+      "desc": "Packs of 102 PCS per pack, 140 microns of thickness, clear front matte back with special grip to easy handling, smooth shuffle and in beatiful colors with small brights around it.",
+      "bullet1": "Magic the gathering, pokemon, one piece, digimon, dragon ball, etc.",
+      "bullet2": "Durable, pvc-free, and acid-free.",
+      "bullet3": "Standard size",
+      "bullet4": "Japanese size",
+      "bullet5": "In 12 different colors"
+    },
+    "innerOver": {
+      "title": "INNER / OVER SLEEVES",
+      "innerTitle": "Inner Sleeves",
+      "innerDesc": "Hard sleeve 140 micros, 102 sleeves per pack clear front and matte clear back ment to protect the color or design sleeve.",
+      "overTitle": "Over Sleeves",
+      "overDesc": "Hard sleeve for better protection, 100 micros, 102 sleeves per pack totally clear and ment to have a perfect fit to the card so it can be inserted afterwards into a colors or design sleeve."
+    },
+    "binders": {
+      "title": "BINDERS",
+      "desc": "9-pocket PRO-Binder with embossed middle black web material gives cards a classic framed look. Sideloading pocket design to prevent cards from easily falling out. Elastic strap holds the binder shut when not in use.",
+      "bullet1": "Archival-SAFE, ACID-FREE.",
+      "bullet2": "NON PVC MATERIAL.",
+      "bullet3": "In 6 different colors"
+    },
+    "deckboxes": {
+      "title": "DECKBOXES",
+      "desc": "Deck Box features a premium leatherette finish and a debossed set symbol. Every deckbox includes a strong magnetic closure with a locking mechanism to keep your cards securely stored when not in use, as well as dual thumb notches for easy access to your deck.",
+      "bullet1": "Store and protect up to 100 standard size trading cards double-sleeved."
+    }
+  },
+  "cart": {
+    "title": "Your Cart",
+    "empty": "Your cart is empty",
+    "total": "Total",
+    "checkout": "Proceed to Checkout",
+    "add": "Add to cart",
+    "quantity": "Quantity",
+    "remove": "Remove"
+  },
+  "footer": {
+    "rights": "© 2026 GOSU®. All rights reserved.",
+    "socials": "FOLLOW US ON SOCIALS"
+  }
+}
