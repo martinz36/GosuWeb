@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       console.warn('Could not query StoreSettings table in DB, using default fallback credentials:', dbErr);
     }
 
-    const isSandboxMode = settings?.mercadoPagoMode === 'sandbox' || !settings?.mercadoPagoMode;
+    const isSandboxMode = settings?.mercadoPagoMode === 'sandbox';
 
     const accessToken =
       (isSandboxMode ? settings?.mpAccessSandboxToken : settings?.mpAccessProdToken) ||
@@ -59,6 +59,10 @@ export async function POST(request: Request) {
     // 3. Create Preference Payload matching Mercado Pago official documentation
     const preferencePayload: any = {
       items: mpItems,
+      payer: {
+        name: name,
+        email: email,
+      },
       back_urls: {
         success: `${origin}/es/checkout/success?status=approved`,
         failure: `${origin}/es/checkout?status=failure`,
@@ -81,11 +85,6 @@ export async function POST(request: Request) {
       }),
       statement_descriptor: 'GOSU ACCESSORIES',
     };
-
-    // Include payer information strictly in production mode
-    if (!isSandboxMode && email) {
-      preferencePayload.payer = { name, email };
-    }
 
     // Only send notification_url if running on HTTPS
     if (isHttps) {
@@ -117,10 +116,13 @@ export async function POST(request: Request) {
       });
     }
 
-    // Official Checkout Pro redirect URLs
-    const initPoint = isSandboxMode
-      ? preferenceData.sandbox_init_point || preferenceData.init_point
-      : preferenceData.init_point || preferenceData.sandbox_init_point;
+    // According to official Mercado Pago docs:
+    // If the token starts with TEST-, use sandbox_init_point.
+    // If the token starts with APP_USR-, use init_point (Production link).
+    const isTestToken = accessToken.trim().startsWith('TEST-');
+    const initPoint = isTestToken
+      ? (preferenceData.sandbox_init_point || preferenceData.init_point)
+      : (preferenceData.init_point || preferenceData.sandbox_init_point);
 
     return NextResponse.json({
       success: true,
