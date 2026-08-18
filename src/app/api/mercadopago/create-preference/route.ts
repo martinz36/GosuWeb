@@ -26,13 +26,17 @@ export async function POST(request: Request) {
       console.warn('Could not query StoreSettings table in DB, using default fallback credentials:', dbErr);
     }
 
+    const isSandboxMode = settings?.mercadoPagoMode === 'sandbox';
+
     const accessToken =
+      (isSandboxMode ? settings?.mpAccessSandboxToken : settings?.mpAccessProdToken) ||
       settings?.mpAccessProdToken ||
       settings?.mpAccessSandboxToken ||
       process.env.MP_ACCESS_TOKEN ||
       defaultAccessToken;
 
     const publicKey =
+      (isSandboxMode ? settings?.mpPublicSandboxKey : settings?.mpPublicProdKey) ||
       settings?.mpPublicProdKey ||
       settings?.mpPublicSandboxKey ||
       process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ||
@@ -101,7 +105,7 @@ export async function POST(request: Request) {
     if (!mpResponse.ok) {
       console.error('Mercado Pago API returned error:', preferenceData);
       
-      // If Mercado Pago returns error (e.g. invalid test credentials or sandbox constraints), return mock init point fallback
+      // If Mercado Pago returns error (e.g. sandbox constraints or invalid test account), return mock init point fallback
       return NextResponse.json({
         success: true,
         preferenceId: 'pref_mock_' + Math.random().toString(36).substring(2, 10),
@@ -112,12 +116,17 @@ export async function POST(request: Request) {
       });
     }
 
-    const initPoint = preferenceData.init_point || preferenceData.sandbox_init_point;
+    // Use sandbox_init_point when in Sandbox mode or if test cards are being used
+    const initPoint = isSandboxMode
+      ? preferenceData.sandbox_init_point || preferenceData.init_point
+      : preferenceData.init_point || preferenceData.sandbox_init_point;
 
     return NextResponse.json({
       success: true,
       preferenceId: preferenceData.id,
       initPoint: initPoint,
+      sandboxInitPoint: preferenceData.sandbox_init_point,
+      prodInitPoint: preferenceData.init_point,
       publicKey: publicKey,
       isMock: false,
     });
