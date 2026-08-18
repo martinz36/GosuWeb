@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+const USER_MP_PUBLIC_KEY = 'APP_USR-08d9d9e0-117e-42c9-9225-0658cd99a424';
+const USER_MP_ACCESS_TOKEN = 'APP_USR-3957004131601630-081800-91959106186021086c02a3fd5d6055bb-1675360619';
+
 export async function GET() {
   try {
     let settings = await prisma.storeSettings.findUnique({
@@ -11,12 +14,12 @@ export async function GET() {
       settings = await prisma.storeSettings.create({
         data: {
           id: 'default',
-          mercadoPagoActive: false,
-          mercadoPagoMode: 'sandbox',
-          mpPublicSandboxKey: 'TEST-12345678-ABCD-EFGH',
-          mpAccessSandboxToken: 'TEST-87654321-DCBA-HGFE',
-          mpPublicProdKey: 'APP_USR-12345678-PROD',
-          mpAccessProdToken: 'APP_USR-87654321-PROD',
+          mercadoPagoActive: true,
+          mercadoPagoMode: 'production',
+          mpPublicSandboxKey: USER_MP_PUBLIC_KEY,
+          mpAccessSandboxToken: USER_MP_ACCESS_TOKEN,
+          mpPublicProdKey: USER_MP_PUBLIC_KEY,
+          mpAccessProdToken: USER_MP_ACCESS_TOKEN,
           stripeActive: false,
           stripeMode: 'sandbox',
           stripePublishableKey: 'pk_test_51MockStripeKey123',
@@ -27,6 +30,25 @@ export async function GET() {
           freeShippingThreshold: 200.0,
         },
       });
+    } else {
+      // Upsert/update with user's newly provided Mercado Pago credentials if they were still mock
+      if (
+        !settings.mpAccessProdToken ||
+        settings.mpAccessProdToken.startsWith('APP_USR-87654321-PROD') ||
+        settings.mpAccessSandboxToken?.startsWith('TEST-87654321')
+      ) {
+        settings = await prisma.storeSettings.update({
+          where: { id: 'default' },
+          data: {
+            mercadoPagoActive: true,
+            mercadoPagoMode: 'production',
+            mpPublicSandboxKey: USER_MP_PUBLIC_KEY,
+            mpAccessSandboxToken: USER_MP_ACCESS_TOKEN,
+            mpPublicProdKey: USER_MP_PUBLIC_KEY,
+            mpAccessProdToken: USER_MP_ACCESS_TOKEN,
+          },
+        });
+      }
     }
 
     return NextResponse.json({
@@ -53,11 +75,11 @@ export async function PUT(request: Request) {
       where: { id: 'default' },
       update: {
         mercadoPagoActive: Boolean(body.mercadoPagoActive),
-        mercadoPagoMode: body.mercadoPagoMode || 'sandbox',
-        mpPublicSandboxKey: body.mpPublicSandboxKey,
-        mpAccessSandboxToken: body.mpAccessSandboxToken,
-        mpPublicProdKey: body.mpPublicProdKey,
-        mpAccessProdToken: body.mpAccessProdToken,
+        mercadoPagoMode: body.mercadoPagoMode || 'production',
+        mpPublicSandboxKey: body.mpPublicSandboxKey || USER_MP_PUBLIC_KEY,
+        mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
+        mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
+        mpAccessProdToken: body.mpAccessProdToken || USER_MP_ACCESS_TOKEN,
 
         stripeActive: Boolean(body.stripeActive),
         stripeMode: body.stripeMode || 'sandbox',
@@ -74,11 +96,11 @@ export async function PUT(request: Request) {
       create: {
         id: 'default',
         mercadoPagoActive: Boolean(body.mercadoPagoActive),
-        mercadoPagoMode: body.mercadoPagoMode || 'sandbox',
-        mpPublicSandboxKey: body.mpPublicSandboxKey,
-        mpAccessSandboxToken: body.mpAccessSandboxToken,
-        mpPublicProdKey: body.mpPublicProdKey,
-        mpAccessProdToken: body.mpAccessProdToken,
+        mercadoPagoMode: body.mercadoPagoMode || 'production',
+        mpPublicSandboxKey: body.mpPublicSandboxKey || USER_MP_PUBLIC_KEY,
+        mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
+        mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
+        mpAccessProdToken: body.mpAccessProdToken || USER_MP_ACCESS_TOKEN,
 
         stripeActive: Boolean(body.stripeActive),
         stripeMode: body.stripeMode || 'sandbox',

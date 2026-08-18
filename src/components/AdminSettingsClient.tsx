@@ -43,8 +43,11 @@ const COUNTRY_FLAGS: Record<string, string> = {
   AR: '🇦🇷 Argentina',
 };
 
+const MP_USER_PUBLIC_KEY = 'APP_USR-08d9d9e0-117e-42c9-9225-0658cd99a424';
+const MP_USER_ACCESS_TOKEN = 'APP_USR-3957004131601630-081800-91959106186021086c02a3fd5d6055bb-1675360619';
+
 export default function AdminSettingsClient({ locale }: { locale: string }) {
-  const [activeTab, setActiveTab] = useState<'shipping' | 'gateways' | 'general'>('shipping');
+  const [activeTab, setActiveTab] = useState<'gateways' | 'shipping' | 'general'>('gateways');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -56,11 +59,11 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
   // Settings State
   const [settings, setSettings] = useState<StoreSettingsData>({
     mercadoPagoActive: true,
-    mercadoPagoMode: 'sandbox',
-    mpPublicSandboxKey: 'TEST-12345678-ABCD-EFGH',
-    mpAccessSandboxToken: 'TEST-87654321-DCBA-HGFE',
-    mpPublicProdKey: 'APP_USR-12345678-PROD',
-    mpAccessProdToken: 'APP_USR-87654321-PROD',
+    mercadoPagoMode: 'production',
+    mpPublicSandboxKey: MP_USER_PUBLIC_KEY,
+    mpAccessSandboxToken: MP_USER_ACCESS_TOKEN,
+    mpPublicProdKey: MP_USER_PUBLIC_KEY,
+    mpAccessProdToken: MP_USER_ACCESS_TOKEN,
 
     stripeActive: false,
     stripeMode: 'sandbox',
@@ -98,11 +101,11 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
       if (dataSettings.success && dataSettings.settings) {
         setSettings({
           mercadoPagoActive: Boolean(dataSettings.settings.mercadoPagoActive),
-          mercadoPagoMode: dataSettings.settings.mercadoPagoMode || 'sandbox',
-          mpPublicSandboxKey: dataSettings.settings.mpPublicSandboxKey || '',
-          mpAccessSandboxToken: dataSettings.settings.mpAccessSandboxToken || '',
-          mpPublicProdKey: dataSettings.settings.mpPublicProdKey || '',
-          mpAccessProdToken: dataSettings.settings.mpAccessProdToken || '',
+          mercadoPagoMode: dataSettings.settings.mercadoPagoMode || 'production',
+          mpPublicSandboxKey: dataSettings.settings.mpPublicSandboxKey || MP_USER_PUBLIC_KEY,
+          mpAccessSandboxToken: dataSettings.settings.mpAccessSandboxToken || MP_USER_ACCESS_TOKEN,
+          mpPublicProdKey: dataSettings.settings.mpPublicProdKey || MP_USER_PUBLIC_KEY,
+          mpAccessProdToken: dataSettings.settings.mpAccessProdToken || MP_USER_ACCESS_TOKEN,
 
           stripeActive: Boolean(dataSettings.settings.stripeActive),
           stripeMode: dataSettings.settings.stripeMode || 'sandbox',
@@ -134,7 +137,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
     loadAllData();
   }, []);
 
-  // Save Settings (including freeShippingThreshold)
+  // Save Settings
   const handleSaveSettings = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setSaving(true);
@@ -148,7 +151,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
 
       const data = await res.json();
       if (data.success) {
-        alert('¡Configuración y umbral de Envío Gratis guardados con éxito en Neon DB!');
+        alert('¡Credenciales de Mercado Pago y configuración guardadas con éxito en Neon DB!');
       } else {
         alert('Error: ' + data.error);
       }
@@ -205,7 +208,6 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
       if (data.success) {
         alert(editingZone ? '¡Zona de envío actualizada!' : '¡Nueva zona de envío creada!');
         setIsZoneModalOpen(false);
-        // Reload zones
         const resZones = await fetch('/api/admin/shipping-zones');
         const dataZones = await resZones.json();
         if (dataZones.success) setShippingZones(dataZones.shippingZones);
@@ -252,13 +254,13 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-5">
             <div>
               <span className="inline-block bg-zinc-900 border border-zinc-800 text-[#00e8ff] text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full font-opensauce mb-2">
-                CONFIGURACIÓN Y LOGÍSTICA
+                CONFIGURACIÓN Y PASARELAS DE PAGO
               </span>
               <h1 className="text-2xl sm:text-3xl font-black uppercase font-sigher tracking-wider text-white">
-                Ajustes de Envío & Pasarelas
+                Mercado Pago & Zonas de Envío
               </h1>
               <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1 font-inter">
-                Gestión de zonas de envío dinámicas, umbral de envío gratis y pasarelas de pago
+                Credenciales activas de Mercado Pago Perú y tarifas de despacho internacional
               </p>
             </div>
 
@@ -282,18 +284,6 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
           <div className="flex items-center gap-2 border-b border-zinc-900 pb-2 font-opensauce text-xs font-bold">
             <button
               type="button"
-              onClick={() => setActiveTab('shipping')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                activeTab === 'shipping'
-                  ? 'bg-zinc-900 text-[#00e8ff] border border-zinc-800'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <span>🚚 Tarifas y Zonas de Envío</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => setActiveTab('gateways')}
               className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
                 activeTab === 'gateways'
@@ -302,6 +292,18 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
               }`}
             >
               <span>💳 Pasarelas de Pago</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('shipping')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'shipping'
+                  ? 'bg-zinc-900 text-[#00e8ff] border border-zinc-800'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <span>🚚 Tarifas y Zonas de Envío</span>
             </button>
 
             <button
@@ -323,7 +325,123 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
             </div>
           ) : (
             <>
-              {/* TAB 1: TARIFAS DE ENVÍO Y ZONAS DINÁMICAS */}
+              {/* TAB 1: PASARELAS DE PAGO */}
+              {activeTab === 'gateways' && (
+                <div className="space-y-8 font-opensauce">
+                  {/* Mercado Pago Card */}
+                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-blue-950/60 border border-blue-800/80 flex items-center justify-center text-xl">
+                          💙
+                        </div>
+                        <div>
+                          <h3 className="text-base font-extrabold uppercase text-white flex items-center gap-2">
+                            Mercado Pago Perú & Internacional
+                            <span className="bg-emerald-950 text-emerald-400 border border-emerald-900 text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full">
+                              Credenciales Configuradas
+                            </span>
+                          </h3>
+                          <p className="text-[10px] text-zinc-500 font-inter">
+                            Procesa Yape, Plin, PagoEfectivo y Tarjetas de Crédito/Débito
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <select
+                          value={settings.mercadoPagoMode}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              mercadoPagoMode: e.target.value as 'sandbox' | 'production',
+                            })
+                          }
+                          className="bg-black border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-[#00e8ff] font-bold focus:outline-none"
+                        >
+                          <option value="production">Modo Producción</option>
+                          <option value="sandbox">Modo Sandbox (Pruebas)</option>
+                        </select>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <span className="text-xs font-bold text-zinc-300">
+                            {settings.mercadoPagoActive ? 'ACTIVO' : 'INACTIVO'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSettings({
+                                ...settings,
+                                mercadoPagoActive: !settings.mercadoPagoActive,
+                              })
+                            }
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                              settings.mercadoPagoActive ? 'bg-[#00e8ff]' : 'bg-zinc-800'
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
+                                settings.mercadoPagoActive ? 'translate-x-5' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      
+                      {/* Public Key */}
+                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-2">
+                        <h4 className="text-xs font-bold uppercase text-[#00e8ff]">🔑 Public Key</h4>
+                        <input
+                          type="text"
+                          value={settings.mpPublicProdKey}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              mpPublicProdKey: e.target.value,
+                              mpPublicSandboxKey: e.target.value,
+                            })
+                          }
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
+                          placeholder="APP_USR-..."
+                        />
+                      </div>
+
+                      {/* Access Token */}
+                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold uppercase text-emerald-400">🔒 Access Token</h4>
+                          <button
+                            type="button"
+                            onClick={() => setShowMpProdToken(!showMpProdToken)}
+                            className="text-[10px] text-zinc-400 hover:text-white uppercase"
+                          >
+                            {showMpProdToken ? 'Ocultar' : 'Mostrar'}
+                          </button>
+                        </div>
+                        <input
+                          type={showMpProdToken ? 'text' : 'password'}
+                          value={settings.mpAccessProdToken}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              mpAccessProdToken: e.target.value,
+                              mpAccessSandboxToken: e.target.value,
+                            })
+                          }
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
+                          placeholder="APP_USR-..."
+                        />
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: TARIFAS DE ENVÍO Y ZONAS DINÁMICAS */}
               {activeTab === 'shipping' && (
                 <div className="space-y-8 font-opensauce">
                   
@@ -408,30 +526,20 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                           ) : (
                             shippingZones.map((zone) => (
                               <tr key={zone.id} className="hover:bg-zinc-900/40 transition-colors">
-                                
-                                {/* Country */}
                                 <td className="px-5 py-4 font-bold text-white whitespace-nowrap">
                                   {COUNTRY_FLAGS[zone.countryCode] || zone.countryCode}
                                 </td>
-
-                                {/* Region */}
                                 <td className="px-5 py-4 font-mono text-zinc-300">
                                   <span className="bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded text-[11px]">
                                     {zone.region || 'Todas las Regiones'}
                                   </span>
                                 </td>
-
-                                {/* Rate */}
                                 <td className="px-5 py-4 font-mono font-bold text-sm text-[#00e8ff]">
                                   S/. {zone.rate.toFixed(2)} {zone.currency}
                                 </td>
-
-                                {/* Estimated Days */}
                                 <td className="px-5 py-4 text-zinc-400 font-inter text-[11px]">
                                   🚚 {zone.estimatedDays || '3 a 5 días hábiles'}
                                 </td>
-
-                                {/* Actions */}
                                 <td className="px-5 py-4 text-center whitespace-nowrap">
                                   <div className="flex items-center justify-center gap-2">
                                     <button
@@ -448,7 +556,6 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                                     </button>
                                   </div>
                                 </td>
-
                               </tr>
                             ))
                           )}
@@ -457,92 +564,6 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                     </div>
                   </div>
 
-                </div>
-              )}
-
-              {/* TAB 2: PASARELAS DE PAGO */}
-              {activeTab === 'gateways' && (
-                <div className="space-y-8 font-opensauce">
-                  {/* Mercado Pago Card */}
-                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-blue-950/60 border border-blue-800/80 flex items-center justify-center text-xl">
-                          💙
-                        </div>
-                        <div>
-                          <h3 className="text-base font-extrabold uppercase text-white flex items-center gap-2">
-                            Mercado Pago Perú & Internacional
-                          </h3>
-                          <p className="text-[10px] text-zinc-500 font-inter">
-                            Procesa tarjetas de crédito/débito, Yape y PagoEfectivo
-                          </p>
-                        </div>
-                      </div>
-
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <span className="text-xs font-bold text-zinc-300">
-                          {settings.mercadoPagoActive ? 'ACTIVO' : 'INACTIVO'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSettings({
-                              ...settings,
-                              mercadoPagoActive: !settings.mercadoPagoActive,
-                            })
-                          }
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            settings.mercadoPagoActive ? 'bg-[#00e8ff]' : 'bg-zinc-800'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
-                              settings.mercadoPagoActive ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </label>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-3">
-                        <h4 className="text-xs font-bold uppercase text-[#00e8ff]">🔑 Sandbox Keys</h4>
-                        <input
-                          type="text"
-                          value={settings.mpPublicSandboxKey}
-                          onChange={(e) => setSettings({ ...settings, mpPublicSandboxKey: e.target.value })}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
-                          placeholder="Public Key (Sandbox)"
-                        />
-                        <input
-                          type={showMpSandboxToken ? 'text' : 'password'}
-                          value={settings.mpAccessSandboxToken}
-                          onChange={(e) => setSettings({ ...settings, mpAccessSandboxToken: e.target.value })}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
-                          placeholder="Access Token (Sandbox)"
-                        />
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-3">
-                        <h4 className="text-xs font-bold uppercase text-emerald-400">🔒 Production Keys</h4>
-                        <input
-                          type="text"
-                          value={settings.mpPublicProdKey}
-                          onChange={(e) => setSettings({ ...settings, mpPublicProdKey: e.target.value })}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
-                          placeholder="Public Key (Producción)"
-                        />
-                        <input
-                          type={showMpProdToken ? 'text' : 'password'}
-                          value={settings.mpAccessProdToken}
-                          onChange={(e) => setSettings({ ...settings, mpAccessProdToken: e.target.value })}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
-                          placeholder="Access Token (Producción)"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
