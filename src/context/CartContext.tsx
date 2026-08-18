@@ -18,6 +18,14 @@ export interface CartItem {
   selectedColor?: string;
 }
 
+export interface AppliedCoupon {
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  message: string;
+  isAffiliate?: boolean;
+}
+
 interface CartContextType {
   cartItems: CartItem[];
   addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number, autoOpenCart?: boolean) => void;
@@ -28,8 +36,10 @@ interface CartContextType {
   cartCount: number;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
-  refCode: string | null;
-  discountPercent: number;
+  appliedCoupon: AppliedCoupon | null;
+  applyCoupon: (code: string) => Promise<{ success: boolean; message: string }>;
+  removeCoupon: () => void;
+  discountAmount: number;
   finalTotal: number;
 }
 
@@ -38,8 +48,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [refCode, setRefCode] = useState<string | null>(null);
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
 
   // Load cart and check for ?ref= parameter in URL on mount
   useEffect(() => {
@@ -52,6 +61,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const savedCoupon = localStorage.getItem('gosu_applied_coupon');
+    if (savedCoupon) {
+      try {
+        setAppliedCoupon(JSON.parse(savedCoupon));
+      } catch (e) {
+        console.error('Error loading coupon from localStorage', e);
+      }
+    }
+
     // Check for ?ref= in URL
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -60,14 +78,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (urlRef) {
         const cleanRef = urlRef.toUpperCase().trim();
         localStorage.setItem('gosu_ref_code', cleanRef);
-        setRefCode(cleanRef);
-        setDiscountPercent(10); // 10% Affiliate discount
-      } else {
-        const storedRef = localStorage.getItem('gosu_ref_code');
-        if (storedRef) {
-          setRefCode(storedRef);
-          setDiscountPercent(10);
-        }
+        
+        // Auto-validate affiliate referral code
+        fetch('/api/coupons/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: cleanRef }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success) {
+              const couponObj: AppliedCoupon = {
+                code: data.code,
+                discountType: data.discountType,
+                discountValue: data.discountValue,
+                message: data.message,
+                isAffiliate: data.type === 'affiliate',
+              };
+              setAppliedCoupon(couponObj);
+              localStorage.setItem('gosu_applied_coupon', JSON.stringify(couponObj));
+            }
+          })
+          .catch((err) => console.error('Error auto-applying referral coupon:', err));
       }
     }
   }, []);
@@ -155,9 +187,56 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCartItems([]);
   };
 
+  // Validate coupon or affiliate code via API
+  const applyCoupon = async (code: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        const couponObj: AppliedCoupon = {
+          code: data.code,
+          discountType: data.discountType,
+          discountValue: data.discountValue,
+          message: data.message,
+          isAffiliate: data.type === 'affiliate',
+        };
+        setAppliedCoupon(couponObj);
+        localStorage.setItem('gosu_applied_coupon', JSON.stringify(couponObj));
+        return { success: true, message: data.message };
+      } else {
+        return { success: false, message: data.error || 'Código no válido' };
+      }
+    } catch (error) {
+      console.error('Error applying coupon:', error);
+      return { success: false, message: 'Error de conexión al validar código.' };
+    }
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    localStorage.removeItem('gosu_applied_coupon');
+  };
+
+  // Financial Calculations
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const finalTotal = discountPercent > 0 ? cartTotal * (1 - discountPercent / 100) : cartTotal;
+
+  let discountAmount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discountType === 'percentage') {
+      discountAmount = cartTotal * (appliedCoupon.discountValue / 100);
+    } else {
+      discountAmount = Math.min(cartTotal, appliedCoupon.discountValue);
+    }
+  }
+
+  const finalTotal = Math.max(0, cartTotal - discountAmount);
 
   return (
     <CartContext.Provider
@@ -171,8 +250,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         cartCount,
         isCartOpen,
         setIsCartOpen,
-        refCode,
-        discountPercent,
+        appliedCoupon,
+        applyCoupon,
+        removeCoupon,
+        discountAmount,
         finalTotal,
       }}
     >
