@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,15 @@ interface CountryCodeOption {
   code: string;
   country: string;
   flag: string;
+}
+
+interface ShippingZoneItem {
+  id: string;
+  countryCode: string;
+  region: string;
+  rate: number;
+  currency: string;
+  estimatedDays: string;
 }
 
 const COUNTRY_CODES: CountryCodeOption[] = [
@@ -48,6 +57,10 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
     clearCart,
   } = useCart();
 
+  // Dynamic Shipping & Settings fetched from Neon DB
+  const [shippingZones, setShippingZones] = useState<ShippingZoneItem[]>([]);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(200.0);
+
   // Customer Contact & Shipping Form State
   const [formData, setFormData] = useState({
     name: 'Carlos Mendoza',
@@ -79,8 +92,44 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Dynamic Shipping Cost
-  const shippingCost = formData.country === 'PE' ? 12.0 : 45.0; // International shipping S/. 45.00
+  // Fetch StoreSettings and ShippingZones from DB
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [resSettings, resZones] = await Promise.all([
+          fetch('/api/admin/settings'),
+          fetch('/api/admin/shipping-zones'),
+        ]);
+
+        const dataSettings = await resSettings.json();
+        const dataZones = await resZones.json();
+
+        if (dataSettings.success && dataSettings.settings) {
+          setFreeShippingThreshold(Number(dataSettings.settings.freeShippingThreshold || 200.0));
+        }
+
+        if (dataZones.success && dataZones.shippingZones) {
+          setShippingZones(dataZones.shippingZones);
+        }
+      } catch (err) {
+        console.error('Error fetching shipping rates:', err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Calculate Dynamic Shipping Cost based on Country, Region, and Free Shipping Threshold
+  const isFreeShippingEligible = finalTotal >= freeShippingThreshold;
+
+  const matchedZone = shippingZones.find(
+    (z) =>
+      z.countryCode === formData.country &&
+      (z.region.toLowerCase() === formData.state.toLowerCase() || z.region.includes('Todas'))
+  ) || shippingZones.find((z) => z.countryCode === formData.country);
+
+  const baseShippingRate = matchedZone ? matchedZone.rate : (formData.country === 'PE' ? 12.0 : 45.0);
+  const shippingCost = isFreeShippingEligible ? 0.0 : baseShippingRate;
   const grandTotal = finalTotal + (cartItems.length > 0 ? shippingCost : 0);
 
   const handleFormChange = (
@@ -92,11 +141,10 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
       const checked = (e.target as HTMLInputElement).checked;
       setFormData({ ...formData, [name]: checked });
     } else if (name === 'country') {
-      // Auto-update default region state when country changes
-      const defaultState = REGIONS_BY_COUNTRY[value]?.[0] || 'Otra Región';
+      const defaultState = REGIONS_BY_COUNTRY[value]?.[0] || 'Todas las Regiones';
       setFormData({ ...formData, country: value, state: defaultState });
     } else if (name === 'billingCountry') {
-      const defaultState = REGIONS_BY_COUNTRY[value]?.[0] || 'Otra Región';
+      const defaultState = REGIONS_BY_COUNTRY[value]?.[0] || 'Todas las Regiones';
       setFormData({ ...formData, billingCountry: value, billingState: defaultState });
     } else {
       setFormData({ ...formData, [name]: value });
@@ -399,7 +447,6 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                   <span>📑 2. Datos de Facturación B2B & Fiscal</span>
                 </h2>
 
-                {/* Same as shipping checkbox */}
                 <label className="flex items-center gap-2 cursor-pointer text-xs text-zinc-300 font-bold">
                   <input
                     type="checkbox"
@@ -412,11 +459,8 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                 </label>
               </div>
 
-              {/* Conditional Billing Address Form */}
               {!formData.sameAsShipping && (
                 <div className="space-y-4 text-xs pt-2 animate-fadeIn">
-                  
-                  {/* Tax ID & Company Name */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold uppercase text-[#00e8ff]">
@@ -449,7 +493,6 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                     </div>
                   </div>
 
-                  {/* Billing Country & Region */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold uppercase text-zinc-400">País de Facturación *</label>
@@ -497,7 +540,6 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                     </div>
                   </div>
 
-                  {/* Billing Street */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-zinc-400">Dirección Fiscal Completa *</label>
                     <input
@@ -510,7 +552,6 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                       placeholder="Dirección fiscal registrada ante SUNAT / SAT"
                     />
                   </div>
-
                 </div>
               )}
             </div>
@@ -609,12 +650,23 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                   </div>
                 )}
 
-                <div className="flex justify-between text-zinc-400">
-                  <span>Envío ({formData.country === 'PE' ? 'Nacional' : 'Internacional'})</span>
-                  <span className="font-mono text-white">
-                    {cartItems.length > 0 ? `S/. ${shippingCost.toFixed(2)}` : 'S/. 0.00'}
+                <div className="flex justify-between text-zinc-400 items-center">
+                  <span>Envío ({formData.state})</span>
+                  <span className="font-mono font-bold">
+                    {isFreeShippingEligible ? (
+                      <span className="text-emerald-400 font-black">S/. 0.00 (¡GRATIS! 🎁)</span>
+                    ) : (
+                      <span className="text-white">S/. {shippingCost.toFixed(2)}</span>
+                    )}
                   </span>
                 </div>
+
+                {/* Free Shipping Progress Indicator */}
+                {!isFreeShippingEligible && freeShippingThreshold > 0 && (
+                  <p className="text-[10px] text-[#00e8ff] font-inter pt-1">
+                    💡 Agrega <span className="font-bold font-mono">S/. {(freeShippingThreshold - finalTotal).toFixed(2)}</span> más para obtener <span className="font-bold underline">¡Envío Gratis!</span>
+                  </p>
+                )}
 
                 <div className="flex justify-between text-lg font-black text-white pt-3 border-t border-zinc-900">
                   <span className="font-sigher uppercase tracking-wider">TOTAL</span>
@@ -635,7 +687,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
               <button
                 type="submit"
                 disabled={isProcessing || cartItems.length === 0}
-                className="w-full py-4 rounded-2xl bg-[#00e8ff] text-black font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-white hover:shadow-[0_0_25px_rgba(0,232,255,0.5)] transition-all shadow-[0_0_15px_rgba(0,232,255,0.3)] disabled:opacity-50"
+                className="w-full py-4 rounded-2xl bg-[#00e8ff] text-black font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-white hover:shadow-[0_0_25px_rgba(0,232,255,0.5)] transition-all shadow-[0_0_15px_rgba(0,232,255,0.3)] disabled:opacity-50 font-opensauce"
               >
                 {isProcessing ? (
                   <>

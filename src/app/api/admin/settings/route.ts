@@ -24,11 +24,18 @@ export async function GET() {
           culqiActive: true,
           culqiPublicKey: process.env.NEXT_PUBLIC_CULQI_PUBLIC_KEY || 'pk_test_mock123',
           culqiSecretKey: process.env.CULQI_SECRET_KEY || 'sk_test_mock123',
+          freeShippingThreshold: 200.0,
         },
       });
     }
 
-    return NextResponse.json({ success: true, settings });
+    return NextResponse.json({
+      success: true,
+      settings: {
+        ...settings,
+        freeShippingThreshold: Number(settings.freeShippingThreshold || 200.0),
+      },
+    });
   } catch (error) {
     console.error('Error fetching settings:', error);
     return NextResponse.json(
@@ -60,6 +67,9 @@ export async function PUT(request: Request) {
         culqiActive: Boolean(body.culqiActive),
         culqiPublicKey: body.culqiPublicKey,
         culqiSecretKey: body.culqiSecretKey,
+
+        freeShippingThreshold:
+          body.freeShippingThreshold !== undefined ? Number(body.freeShippingThreshold) : 200.0,
       },
       create: {
         id: 'default',
@@ -78,10 +88,19 @@ export async function PUT(request: Request) {
         culqiActive: Boolean(body.culqiActive),
         culqiPublicKey: body.culqiPublicKey,
         culqiSecretKey: body.culqiSecretKey,
+
+        freeShippingThreshold:
+          body.freeShippingThreshold !== undefined ? Number(body.freeShippingThreshold) : 200.0,
       },
     });
 
-    return NextResponse.json({ success: true, settings: updatedSettings });
+    return NextResponse.json({
+      success: true,
+      settings: {
+        ...updatedSettings,
+        freeShippingThreshold: Number(updatedSettings.freeShippingThreshold || 200.0),
+      },
+    });
   } catch (error) {
     console.error('Error saving store settings:', error);
     return NextResponse.json(

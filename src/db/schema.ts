@@ -18,15 +18,15 @@ export const products = sqliteTable('products', {
 });
 
 export const orders = sqliteTable('orders', {
-  id: text('id').primaryKey(), // We can use UUID or nanoId
+  id: text('id').primaryKey(),
   customerName: text('customer_name').notNull(),
   customerEmail: text('customer_email').notNull(),
   customerPhone: text('customer_phone').notNull(),
   shippingAddress: text('shipping_address').notNull(),
   total: real('total').notNull(),
-  status: text('status').notNull().default('pending'), // 'pending' | 'completed' | 'failed'
-  paymentId: text('payment_id'), // Culqi charge ID
-  createdAt: integer('created_at').notNull(), // timestamp
+  status: text('status').notNull().default('pending'),
+  paymentId: text('payment_id'),
+  createdAt: integer('created_at').notNull(),
 });
 
 export const orderItems = sqliteTable('order_items', {
@@ -43,12 +43,12 @@ export const affiliates = sqliteTable('affiliates', {
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash'),
-  code: text('code').notNull().unique(), // e.g. "GOSU-CARLOS"
-  commissionRate: real('commission_rate').notNull().default(10.0), // Percentage e.g. 10%
+  code: text('code').notNull().unique(),
+  commissionRate: real('commission_rate').notNull().default(10.0),
   balancePending: real('balance_pending').notNull().default(0.0),
   balancePaid: real('balance_paid').notNull().default(0.0),
-  paymentInfo: text('payment_info'), // Yape, Plin, CCI, Banco
-  status: text('status').notNull().default('aprobado'), // 'pendiente' | 'aprobado' | 'rechazado'
+  paymentInfo: text('payment_info'),
+  status: text('status').notNull().default('aprobado'),
   totalClicks: integer('total_clicks').notNull().default(0),
   createdAt: integer('created_at').notNull(),
 });
@@ -59,15 +59,14 @@ export const referralSales = sqliteTable('referral_sales', {
   orderId: text('order_id').notNull().references(() => orders.id),
   orderAmount: real('order_amount').notNull(),
   commission: real('commission').notNull(),
-  status: text('status').notNull().default('pending'), // 'pending' | 'paid'
+  status: text('status').notNull().default('pending'),
   createdAt: integer('created_at').notNull(),
 });
 
-// STORE SETTINGS & PAYMENT GATEWAYS
+// STORE SETTINGS
 export const storeSettings = sqliteTable('store_settings', {
   id: text('id').primaryKey().default('default'),
   
-  // Mercado Pago Perú
   mercadoPagoActive: integer('mercado_pago_active', { mode: 'boolean' }).notNull().default(false),
   mercadoPagoMode: text('mercado_pago_mode').notNull().default('sandbox'),
   mpPublicSandboxKey: text('mp_public_sandbox_key'),
@@ -75,16 +74,27 @@ export const storeSettings = sqliteTable('store_settings', {
   mpPublicProdKey: text('mp_public_prod_key'),
   mpAccessProdToken: text('mp_access_prod_token'),
 
-  // Stripe
   stripeActive: integer('stripe_active', { mode: 'boolean' }).notNull().default(false),
   stripeMode: text('stripe_mode').notNull().default('sandbox'),
   stripePublishableKey: text('stripe_publishable_key'),
   stripeSecretKey: text('stripe_secret_key'),
 
-  // Culqi
   culqiActive: integer('culqi_active', { mode: 'boolean' }).notNull().default(true),
   culqiPublicKey: text('culqi_public_key'),
   culqiSecretKey: text('culqi_secret_key'),
 
+  freeShippingThreshold: real('free_shipping_threshold').default(200.0),
+
   updatedAt: integer('updated_at').notNull(),
+});
+
+// SHIPPING ZONES
+export const shippingZones = sqliteTable('shipping_zones', {
+  id: text('id').primaryKey(),
+  countryCode: text('country_code').notNull(),
+  region: text('region'),
+  rate: real('rate').notNull(),
+  currency: text('currency').notNull().default('PEN'),
+  estimatedDays: text('estimated_days'),
+  createdAt: integer('created_at').notNull(),
 });

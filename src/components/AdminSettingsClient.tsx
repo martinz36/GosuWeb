@@ -19,10 +19,32 @@ interface StoreSettingsData {
   culqiActive: boolean;
   culqiPublicKey: string;
   culqiSecretKey: string;
+
+  freeShippingThreshold: number;
 }
 
+interface ShippingZoneItem {
+  id: string;
+  countryCode: string;
+  region: string;
+  rate: number;
+  currency: string;
+  estimatedDays: string;
+}
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  PE: '🇵🇪 Perú',
+  MX: '🇲🇽 México',
+  CL: '🇨🇱 Chile',
+  CR: '🇨🇷 Costa Rica',
+  CO: '🇨🇴 Colombia',
+  US: '🇺🇸 Estados Unidos',
+  ES: '🇪🇸 España',
+  AR: '🇦🇷 Argentina',
+};
+
 export default function AdminSettingsClient({ locale }: { locale: string }) {
-  const [activeTab, setActiveTab] = useState<'gateways' | 'general' | 'shipping'>('gateways');
+  const [activeTab, setActiveTab] = useState<'shipping' | 'gateways' | 'general'>('shipping');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -48,47 +70,73 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
     culqiActive: true,
     culqiPublicKey: 'pk_test_mock123',
     culqiSecretKey: 'sk_test_mock123',
+
+    freeShippingThreshold: 200.0,
   });
 
-  // Fetch current settings from database via API
-  useEffect(() => {
-    const fetchSettings = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/admin/settings');
-        const data = await res.json();
-        if (data.success && data.settings) {
-          setSettings({
-            mercadoPagoActive: Boolean(data.settings.mercadoPagoActive),
-            mercadoPagoMode: data.settings.mercadoPagoMode || 'sandbox',
-            mpPublicSandboxKey: data.settings.mpPublicSandboxKey || '',
-            mpAccessSandboxToken: data.settings.mpAccessSandboxToken || '',
-            mpPublicProdKey: data.settings.mpPublicProdKey || '',
-            mpAccessProdToken: data.settings.mpAccessProdToken || '',
+  // Shipping Zones List State
+  const [shippingZones, setShippingZones] = useState<ShippingZoneItem[]>([]);
+  const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
+  const [editingZone, setEditingZone] = useState<ShippingZoneItem | null>(null);
 
-            stripeActive: Boolean(data.settings.stripeActive),
-            stripeMode: data.settings.stripeMode || 'sandbox',
-            stripePublishableKey: data.settings.stripePublishableKey || '',
-            stripeSecretKey: data.settings.stripeSecretKey || '',
+  // Form State for Creating/Editing Shipping Zone
+  const [zoneForm, setZoneForm] = useState({
+    countryCode: 'PE',
+    region: 'Lima',
+    rate: '12.00',
+    currency: 'PEN',
+    estimatedDays: '24 a 48 horas hábiles',
+  });
 
-            culqiActive: Boolean(data.settings.culqiActive),
-            culqiPublicKey: data.settings.culqiPublicKey || '',
-            culqiSecretKey: data.settings.culqiSecretKey || '',
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching store settings:', err);
-      } finally {
-        setLoading(false);
+  // Fetch settings & shipping zones
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch StoreSettings
+      const resSettings = await fetch('/api/admin/settings');
+      const dataSettings = await resSettings.json();
+      if (dataSettings.success && dataSettings.settings) {
+        setSettings({
+          mercadoPagoActive: Boolean(dataSettings.settings.mercadoPagoActive),
+          mercadoPagoMode: dataSettings.settings.mercadoPagoMode || 'sandbox',
+          mpPublicSandboxKey: dataSettings.settings.mpPublicSandboxKey || '',
+          mpAccessSandboxToken: dataSettings.settings.mpAccessSandboxToken || '',
+          mpPublicProdKey: dataSettings.settings.mpPublicProdKey || '',
+          mpAccessProdToken: dataSettings.settings.mpAccessProdToken || '',
+
+          stripeActive: Boolean(dataSettings.settings.stripeActive),
+          stripeMode: dataSettings.settings.stripeMode || 'sandbox',
+          stripePublishableKey: dataSettings.settings.stripePublishableKey || '',
+          stripeSecretKey: dataSettings.settings.stripeSecretKey || '',
+
+          culqiActive: Boolean(dataSettings.settings.culqiActive),
+          culqiPublicKey: dataSettings.settings.culqiPublicKey || '',
+          culqiSecretKey: dataSettings.settings.culqiSecretKey || '',
+
+          freeShippingThreshold: Number(dataSettings.settings.freeShippingThreshold || 200.0),
+        });
       }
-    };
 
-    fetchSettings();
+      // 2. Fetch Shipping Zones
+      const resZones = await fetch('/api/admin/shipping-zones');
+      const dataZones = await resZones.json();
+      if (dataZones.success && dataZones.shippingZones) {
+        setShippingZones(dataZones.shippingZones);
+      }
+    } catch (err) {
+      console.error('Error fetching settings & zones:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
   }, []);
 
-  // Save Settings to Database via API
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Save Settings (including freeShippingThreshold)
+  const handleSaveSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setSaving(true);
 
     try {
@@ -100,7 +148,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
 
       const data = await res.json();
       if (data.success) {
-        alert('¡Configuración de pasarelas de pago guardada de forma segura en Neon DB!');
+        alert('¡Configuración y umbral de Envío Gratis guardados con éxito en Neon DB!');
       } else {
         alert('Error: ' + data.error);
       }
@@ -112,6 +160,84 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
     }
   };
 
+  // Open modal to create a new Shipping Zone
+  const handleOpenCreateZone = () => {
+    setEditingZone(null);
+    setZoneForm({
+      countryCode: 'PE',
+      region: 'Lima',
+      rate: '12.00',
+      currency: 'PEN',
+      estimatedDays: '24 a 48 horas hábiles',
+    });
+    setIsZoneModalOpen(true);
+  };
+
+  // Open modal to edit existing Shipping Zone
+  const handleOpenEditZone = (zone: ShippingZoneItem) => {
+    setEditingZone(zone);
+    setZoneForm({
+      countryCode: zone.countryCode,
+      region: zone.region || '',
+      rate: String(zone.rate),
+      currency: zone.currency || 'PEN',
+      estimatedDays: zone.estimatedDays || '',
+    });
+    setIsZoneModalOpen(true);
+  };
+
+  // Submit Save Shipping Zone (Create or Update)
+  const handleSaveZoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const method = editingZone ? 'PUT' : 'POST';
+      const payload = editingZone
+        ? { id: editingZone.id, ...zoneForm, rate: parseFloat(zoneForm.rate) }
+        : { ...zoneForm, rate: parseFloat(zoneForm.rate) };
+
+      const res = await fetch('/api/admin/shipping-zones', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert(editingZone ? '¡Zona de envío actualizada!' : '¡Nueva zona de envío creada!');
+        setIsZoneModalOpen(false);
+        // Reload zones
+        const resZones = await fetch('/api/admin/shipping-zones');
+        const dataZones = await resZones.json();
+        if (dataZones.success) setShippingZones(dataZones.shippingZones);
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error saving shipping zone:', err);
+      alert('Error al procesar zona de envío.');
+    }
+  };
+
+  // Delete Shipping Zone
+  const handleDeleteZone = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar esta zona de envío?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/shipping-zones?id=${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShippingZones(shippingZones.filter((z) => z.id !== id));
+        alert('Zona de envío eliminada.');
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error deleting zone:', err);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-black text-white font-sans selection:bg-[#00e8ff] selection:text-black">
       
@@ -120,24 +246,24 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
-        <form onSubmit={handleSaveSettings} className="max-w-5xl mx-auto space-y-8 pb-16">
+        <div className="max-w-5xl mx-auto space-y-8 pb-16">
           
           {/* Header Action Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-5">
             <div>
               <span className="inline-block bg-zinc-900 border border-zinc-800 text-[#00e8ff] text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full font-opensauce mb-2">
-                CONFIGURACIÓN GLOBAL
+                CONFIGURACIÓN Y LOGÍSTICA
               </span>
               <h1 className="text-2xl sm:text-3xl font-black uppercase font-sigher tracking-wider text-white">
-                Ajustes de la Tienda
+                Ajustes de Envío & Pasarelas
               </h1>
               <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1 font-inter">
-                Gestión segura de credenciales de Mercado Pago, Stripe, Culqi y envíos
+                Gestión de zonas de envío dinámicas, umbral de envío gratis y pasarelas de pago
               </p>
             </div>
 
             <button
-              type="submit"
+              onClick={() => handleSaveSettings()}
               disabled={saving}
               className="px-6 py-2.5 rounded-full bg-[#00e8ff] text-black font-extrabold uppercase text-xs tracking-wider hover:bg-white hover:shadow-[0_0_20px_rgba(0,232,255,0.4)] transition-all font-opensauce shadow-[0_0_12px_rgba(0,232,255,0.25)] flex items-center gap-2"
             >
@@ -147,13 +273,25 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                   <span>Guardando...</span>
                 </>
               ) : (
-                <span>Guardar Cambios</span>
+                <span>Guardar Ajustes</span>
               )}
             </button>
           </div>
 
           {/* Modular Navigation Tabs */}
           <div className="flex items-center gap-2 border-b border-zinc-900 pb-2 font-opensauce text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setActiveTab('shipping')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'shipping'
+                  ? 'bg-zinc-900 text-[#00e8ff] border border-zinc-800'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <span>🚚 Tarifas y Zonas de Envío</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('gateways')}
@@ -177,18 +315,6 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
             >
               <span>⚙️ Ajustes Generales</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('shipping')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                activeTab === 'shipping'
-                  ? 'bg-zinc-900 text-[#00e8ff] border border-zinc-800'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <span>🚚 Tarifas de Envío</span>
-            </button>
           </div>
 
           {loading ? (
@@ -197,14 +323,148 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
             </div>
           ) : (
             <>
-              {/* TAB 1: PASARELAS DE PAGO */}
-              {activeTab === 'gateways' && (
-                <div className="space-y-8">
+              {/* TAB 1: TARIFAS DE ENVÍO Y ZONAS DINÁMICAS */}
+              {activeTab === 'shipping' && (
+                <div className="space-y-8 font-opensauce">
                   
-                  {/* CARD 1: MERCADO PAGO PERÚ */}
-                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl font-opensauce">
-                    
-                    {/* Header & Toggle Switch */}
+                  {/* CARD 1: CONFIGURACIÓN GLOBAL DE ENVÍO GRATIS */}
+                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-4 backdrop-blur-md shadow-xl">
+                    <div className="border-b border-zinc-900 pb-3 flex items-center justify-between">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                        <span>🎁 Envío Gratis Global</span>
+                        <span className="bg-emerald-950 text-emerald-400 border border-emerald-900 text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full">
+                          Promoción Activa
+                        </span>
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase text-zinc-300">
+                          Envío Gratis a partir de X monto (S/.) *
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-[#00e8ff] font-sigher">S/.</span>
+                          <input
+                            type="number"
+                            step="10"
+                            value={settings.freeShippingThreshold}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                freeShippingThreshold: parseFloat(e.target.value) || 0,
+                              })
+                            }
+                            className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-[#00e8ff]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-black border border-zinc-850 text-xs text-zinc-400 leading-relaxed font-inter">
+                        💡 <span className="text-white font-bold">Lógica Automática:</span> Cualquier compra cuyo subtotal sea igual o mayor a <span className="text-[#00e8ff] font-bold">S/. {settings.freeShippingThreshold.toFixed(2)}</span> tendrá costo de envío <span className="text-emerald-400 font-bold">S/. 0.00 (Gratis)</span> durante el checkout.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CARD 2: TABLA DE ZONAS DE ENVÍO DINÁMICAS */}
+                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
+                      <div>
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                          🗺️ Zonas y Tarifas de Despacho Dinámicas
+                        </h3>
+                        <p className="text-[10px] text-zinc-500 font-inter mt-0.5">
+                          Define costos y tiempos de entrega según el país y la región del cliente
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleOpenCreateZone}
+                        className="px-4 py-2 rounded-xl bg-[#00e8ff] text-black font-extrabold uppercase text-xs tracking-wider hover:bg-white transition-all shadow-[0_0_10px_rgba(0,232,255,0.3)] shrink-0"
+                      >
+                        + Crear Nueva Zona
+                      </button>
+                    </div>
+
+                    {/* Shipping Zones Table */}
+                    <div className="overflow-x-auto rounded-xl border border-zinc-850 bg-black">
+                      <table className="w-full border-collapse text-left text-xs text-zinc-300">
+                        <thead className="bg-zinc-950 text-[10px] uppercase font-bold tracking-wider text-zinc-500 border-b border-zinc-850">
+                          <tr>
+                            <th className="px-5 py-3.5">País</th>
+                            <th className="px-5 py-3.5">Región / Provincia</th>
+                            <th className="px-5 py-3.5">Costo Envío</th>
+                            <th className="px-5 py-3.5">Tiempo Estimado</th>
+                            <th className="px-5 py-3.5 text-center">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-900">
+                          {shippingZones.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-5 py-6 text-center text-zinc-500 font-inter">
+                                No hay zonas de envío configuradas. Haz clic en "Crear Nueva Zona".
+                              </td>
+                            </tr>
+                          ) : (
+                            shippingZones.map((zone) => (
+                              <tr key={zone.id} className="hover:bg-zinc-900/40 transition-colors">
+                                
+                                {/* Country */}
+                                <td className="px-5 py-4 font-bold text-white whitespace-nowrap">
+                                  {COUNTRY_FLAGS[zone.countryCode] || zone.countryCode}
+                                </td>
+
+                                {/* Region */}
+                                <td className="px-5 py-4 font-mono text-zinc-300">
+                                  <span className="bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded text-[11px]">
+                                    {zone.region || 'Todas las Regiones'}
+                                  </span>
+                                </td>
+
+                                {/* Rate */}
+                                <td className="px-5 py-4 font-mono font-bold text-sm text-[#00e8ff]">
+                                  S/. {zone.rate.toFixed(2)} {zone.currency}
+                                </td>
+
+                                {/* Estimated Days */}
+                                <td className="px-5 py-4 text-zinc-400 font-inter text-[11px]">
+                                  🚚 {zone.estimatedDays || '3 a 5 días hábiles'}
+                                </td>
+
+                                {/* Actions */}
+                                <td className="px-5 py-4 text-center whitespace-nowrap">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button
+                                      onClick={() => handleOpenEditZone(zone)}
+                                      className="px-2.5 py-1 rounded bg-zinc-900 text-zinc-300 hover:text-white border border-zinc-800 text-[10px] font-bold uppercase"
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteZone(zone.id)}
+                                      className="px-2.5 py-1 rounded bg-red-950/60 text-red-400 hover:bg-red-900 hover:text-white border border-red-900 text-[10px] font-bold"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </td>
+
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
+              {/* TAB 2: PASARELAS DE PAGO */}
+              {activeTab === 'gateways' && (
+                <div className="space-y-8 font-opensauce">
+                  {/* Mercado Pago Card */}
+                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-blue-950/60 border border-blue-800/80 flex items-center justify-center text-xl">
@@ -212,15 +472,14 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                         </div>
                         <div>
                           <h3 className="text-base font-extrabold uppercase text-white flex items-center gap-2">
-                            Mercado Pago Perú
+                            Mercado Pago Perú & Internacional
                           </h3>
                           <p className="text-[10px] text-zinc-500 font-inter">
-                            Procesa tarjetas de crédito/débito, Yape y efectivo en Perú
+                            Procesa tarjetas de crédito/débito, Yape y PagoEfectivo
                           </p>
                         </div>
                       </div>
 
-                      {/* Active Toggle Switch */}
                       <label className="flex items-center gap-3 cursor-pointer">
                         <span className="text-xs font-bold text-zinc-300">
                           {settings.mercadoPagoActive ? 'ACTIVO' : 'INACTIVO'}
@@ -246,281 +505,48 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                       </label>
                     </div>
 
-                    {/* Environment Radio (Sandbox / Production) */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                        Entorno de Ejecución *
-                      </label>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label
-                          onClick={() => setSettings({ ...settings, mercadoPagoMode: 'sandbox' })}
-                          className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
-                            settings.mercadoPagoMode === 'sandbox'
-                              ? 'bg-zinc-900 border-[#00e8ff] text-white'
-                              : 'bg-black border-zinc-850 text-zinc-400'
-                          }`}
-                        >
-                          <input type="radio" checked={settings.mercadoPagoMode === 'sandbox'} readOnly />
-                          <div>
-                            <p className="text-xs font-bold">Modo Sandbox (Pruebas)</p>
-                            <p className="text-[10px] text-zinc-500">Prueba pagos con tarjetas de test de Mercado Pago</p>
-                          </div>
-                        </label>
-
-                        <label
-                          onClick={() => setSettings({ ...settings, mercadoPagoMode: 'production' })}
-                          className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
-                            settings.mercadoPagoMode === 'production'
-                              ? 'bg-emerald-950/40 border-emerald-500 text-white'
-                              : 'bg-black border-zinc-850 text-zinc-400'
-                          }`}
-                        >
-                          <input type="radio" checked={settings.mercadoPagoMode === 'production'} readOnly />
-                          <div>
-                            <p className="text-xs font-bold text-emerald-400">Modo Producción (En Vivo 🚀)</p>
-                            <p className="text-[10px] text-zinc-500">Cobra dinero real directamente a tu cuenta bancaria</p>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Keys Fields */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
-                      
-                      {/* Sandbox Keys */}
-                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-4">
-                        <h4 className="text-xs font-bold uppercase text-[#00e8ff]">
-                          🔑 Credenciales de Pruebas (Sandbox)
-                        </h4>
-
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-zinc-500 uppercase font-bold">Public Key (Sandbox)</label>
-                          <input
-                            type="text"
-                            value={settings.mpPublicSandboxKey}
-                            onChange={(e) =>
-                              setSettings({ ...settings, mpPublicSandboxKey: e.target.value })
-                            }
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
-                            placeholder="TEST-12345678-..."
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-center">
-                            <label className="text-[10px] text-zinc-500 uppercase font-bold">Access Token (Sandbox)</label>
-                            <button
-                              type="button"
-                              onClick={() => setShowMpSandboxToken(!showMpSandboxToken)}
-                              className="text-[9px] text-[#00e8ff] font-bold"
-                            >
-                              {showMpSandboxToken ? 'Ocultar' : 'Mostrar'}
-                            </button>
-                          </div>
-                          <input
-                            type={showMpSandboxToken ? 'text' : 'password'}
-                            value={settings.mpAccessSandboxToken}
-                            onChange={(e) =>
-                              setSettings({ ...settings, mpAccessSandboxToken: e.target.value })
-                            }
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
-                            placeholder="TEST-87654321-..."
-                          />
-                        </div>
-                      </div>
-
-                      {/* Production Keys */}
-                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-4">
-                        <h4 className="text-xs font-bold uppercase text-emerald-400">
-                          🔒 Credenciales de Producción (En Vivo)
-                        </h4>
-
-                        <div className="space-y-1">
-                          <label className="text-[10px] text-zinc-500 uppercase font-bold">Public Key (Producción)</label>
-                          <input
-                            type="text"
-                            value={settings.mpPublicProdKey}
-                            onChange={(e) =>
-                              setSettings({ ...settings, mpPublicProdKey: e.target.value })
-                            }
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
-                            placeholder="APP_USR-12345678-..."
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-center">
-                            <label className="text-[10px] text-zinc-500 uppercase font-bold">Access Token (Producción)</label>
-                            <button
-                              type="button"
-                              onClick={() => setShowMpProdToken(!showMpProdToken)}
-                              className="text-[9px] text-emerald-400 font-bold"
-                            >
-                              {showMpProdToken ? 'Ocultar' : 'Mostrar'}
-                            </button>
-                          </div>
-                          <input
-                            type={showMpProdToken ? 'text' : 'password'}
-                            value={settings.mpAccessProdToken}
-                            onChange={(e) =>
-                              setSettings({ ...settings, mpAccessProdToken: e.target.value })
-                            }
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
-                            placeholder="APP_USR-87654321-..."
-                          />
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* CARD 2: STRIPE (FUTURO) */}
-                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl font-opensauce">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-purple-950/60 border border-purple-800/80 flex items-center justify-center text-xl">
-                          🟣
-                        </div>
-                        <div>
-                          <h3 className="text-base font-extrabold uppercase text-white flex items-center gap-2">
-                            Stripe (Pagos Internacionales)
-                          </h3>
-                          <p className="text-[10px] text-zinc-500 font-inter">
-                            Procesa pagos en USD, Euros y tarjetas internacionales
-                          </p>
-                        </div>
-                      </div>
-
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <span className="text-xs font-bold text-zinc-300">
-                          {settings.stripeActive ? 'ACTIVO' : 'INACTIVO'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSettings({
-                              ...settings,
-                              stripeActive: !settings.stripeActive,
-                            })
-                          }
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            settings.stripeActive ? 'bg-[#00e8ff]' : 'bg-zinc-800'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
-                              settings.stripeActive ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </label>
-                    </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold">Publishable Key</label>
+                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-3">
+                        <h4 className="text-xs font-bold uppercase text-[#00e8ff]">🔑 Sandbox Keys</h4>
                         <input
                           type="text"
-                          value={settings.stripePublishableKey}
-                          onChange={(e) =>
-                            setSettings({ ...settings, stripePublishableKey: e.target.value })
-                          }
-                          className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
-                          placeholder="pk_test_..."
+                          value={settings.mpPublicSandboxKey}
+                          onChange={(e) => setSettings({ ...settings, mpPublicSandboxKey: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
+                          placeholder="Public Key (Sandbox)"
                         />
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex justify-between items-center">
-                          <label className="text-[10px] text-zinc-500 uppercase font-bold">Secret Key</label>
-                          <button
-                            type="button"
-                            onClick={() => setShowStripeSecret(!showStripeSecret)}
-                            className="text-[9px] text-[#00e8ff] font-bold"
-                          >
-                            {showStripeSecret ? 'Ocultar' : 'Mostrar'}
-                          </button>
-                        </div>
                         <input
-                          type={showStripeSecret ? 'text' : 'password'}
-                          value={settings.stripeSecretKey}
-                          onChange={(e) =>
-                            setSettings({ ...settings, stripeSecretKey: e.target.value })
-                          }
-                          className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
-                          placeholder="sk_test_..."
+                          type={showMpSandboxToken ? 'text' : 'password'}
+                          value={settings.mpAccessSandboxToken}
+                          onChange={(e) => setSettings({ ...settings, mpAccessSandboxToken: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
+                          placeholder="Access Token (Sandbox)"
                         />
                       </div>
-                    </div>
-                  </div>
 
-                  {/* CARD 3: CULQI */}
-                  <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl font-opensauce">
-                    <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-cyan-950/60 border border-cyan-800/80 flex items-center justify-center text-xl">
-                          ⚡
-                        </div>
-                        <div>
-                          <h3 className="text-base font-extrabold uppercase text-white">
-                            Culqi (Pasarela Configurada)
-                          </h3>
-                          <p className="text-[10px] text-zinc-500 font-inter">
-                            Integración nativa activa para pagos con tarjeta y Yape
-                          </p>
-                        </div>
-                      </div>
-
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <span className="text-xs font-bold text-zinc-300">
-                          {settings.culqiActive ? 'ACTIVO' : 'INACTIVO'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSettings({ ...settings, culqiActive: !settings.culqiActive })
-                          }
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            settings.culqiActive ? 'bg-[#00e8ff]' : 'bg-zinc-800'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
-                              settings.culqiActive ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </label>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold">Public Key</label>
+                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-3">
+                        <h4 className="text-xs font-bold uppercase text-emerald-400">🔒 Production Keys</h4>
                         <input
                           type="text"
-                          value={settings.culqiPublicKey}
-                          onChange={(e) => setSettings({ ...settings, culqiPublicKey: e.target.value })}
-                          className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
+                          value={settings.mpPublicProdKey}
+                          onChange={(e) => setSettings({ ...settings, mpPublicProdKey: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
+                          placeholder="Public Key (Producción)"
                         />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-zinc-500 uppercase font-bold">Secret Key</label>
                         <input
-                          type="password"
-                          value={settings.culqiSecretKey}
-                          onChange={(e) => setSettings({ ...settings, culqiSecretKey: e.target.value })}
-                          className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
+                          type={showMpProdToken ? 'text' : 'password'}
+                          value={settings.mpAccessProdToken}
+                          onChange={(e) => setSettings({ ...settings, mpAccessProdToken: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-mono text-white"
+                          placeholder="Access Token (Producción)"
                         />
                       </div>
                     </div>
                   </div>
-
                 </div>
               )}
 
-              {/* TAB 2: AJUSTES GENERALES */}
+              {/* TAB 3: GENERAL */}
               {activeTab === 'general' && (
                 <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md font-opensauce">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-white border-b border-zinc-900 pb-3">
@@ -533,7 +559,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                       <input
                         type="text"
                         defaultValue="GOSU® E-Commerce Perú"
-                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white"
                       />
                     </div>
 
@@ -549,40 +575,107 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                   </div>
                 </div>
               )}
-
-              {/* TAB 3: TARIFAS DE ENVÍO */}
-              {activeTab === 'shipping' && (
-                <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md font-opensauce">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white border-b border-zinc-900 pb-3">
-                    🚚 Cobertura y Tarifas de Despacho
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase text-zinc-400">Envío Lima Metropolitana (S/.)</label>
-                      <input
-                        type="number"
-                        defaultValue="12.00"
-                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold uppercase text-zinc-400">Envío Provincias Olva / Shalom (S/.)</label>
-                      <input
-                        type="number"
-                        defaultValue="20.00"
-                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
             </>
           )}
 
-        </form>
+        </div>
       </main>
+
+      {/* Modal / Form Drawer for Creating or Editing Shipping Zone */}
+      {isZoneModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm font-opensauce">
+          <div className="w-full max-w-lg bg-zinc-950 border border-zinc-850 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
+              <h3 className="text-base font-black uppercase tracking-wider text-white">
+                {editingZone ? 'Editar Zona de Envío' : 'Crear Zona de Envío'}
+              </h3>
+              <button
+                onClick={() => setIsZoneModalOpen(false)}
+                className="h-8 w-8 rounded-full bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveZoneSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400">País *</label>
+                  <select
+                    value={zoneForm.countryCode}
+                    onChange={(e) => setZoneForm({ ...zoneForm, countryCode: e.target.value })}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-[#00e8ff]"
+                  >
+                    <option value="PE">🇵🇪 Perú</option>
+                    <option value="MX">🇲🇽 México</option>
+                    <option value="CL">🇨🇱 Chile</option>
+                    <option value="CR">🇨🇷 Costa Rica</option>
+                    <option value="CO">🇨🇴 Colombia</option>
+                    <option value="US">🇺🇸 Estados Unidos</option>
+                    <option value="ES">🇪🇸 España</option>
+                    <option value="AR">🇦🇷 Argentina</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400">Región / Provincia *</label>
+                  <input
+                    type="text"
+                    required
+                    value={zoneForm.region}
+                    onChange={(e) => setZoneForm({ ...zoneForm, region: e.target.value })}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-[#00e8ff]"
+                    placeholder="Ej: Lima / Arequipa / Todas"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400">Costo de Envío (S/.) *</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    required
+                    value={zoneForm.rate}
+                    onChange={(e) => setZoneForm({ ...zoneForm, rate: e.target.value })}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-[#00e8ff] font-mono"
+                    placeholder="12.00"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400">Tiempo Estimado *</label>
+                  <input
+                    type="text"
+                    required
+                    value={zoneForm.estimatedDays}
+                    onChange={(e) => setZoneForm({ ...zoneForm, estimatedDays: e.target.value })}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-[#00e8ff]"
+                    placeholder="Ej: 24 a 48 horas hábiles"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-xl bg-[#00e8ff] text-black font-extrabold uppercase text-xs tracking-wider hover:bg-white transition-colors"
+                >
+                  {editingZone ? 'Guardar Cambios' : 'Crear Zona'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsZoneModalOpen(false)}
+                  className="px-5 py-3 rounded-xl border border-zinc-800 text-zinc-400 text-xs font-bold uppercase hover:text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
