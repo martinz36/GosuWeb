@@ -20,6 +20,8 @@ export async function GET() {
           mpAccessSandboxToken: USER_MP_ACCESS_TOKEN,
           mpPublicProdKey: USER_MP_PUBLIC_KEY,
           mpAccessProdToken: USER_MP_ACCESS_TOKEN,
+          mpClientId: '',
+          mpClientSecret: '',
           stripeActive: false,
           stripeMode: 'sandbox',
           stripePublishableKey: 'pk_test_51MockStripeKey123',
@@ -61,6 +63,8 @@ export async function PUT(request: Request) {
         mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
         mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
         mpAccessProdToken: body.mpAccessProdToken || USER_MP_ACCESS_TOKEN,
+        mpClientId: body.mpClientId || '',
+        mpClientSecret: body.mpClientSecret || '',
 
         stripeActive: Boolean(body.stripeActive),
         stripeMode: body.stripeMode || 'sandbox',
@@ -82,6 +86,8 @@ export async function PUT(request: Request) {
         mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
         mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
         mpAccessProdToken: body.mpAccessProdToken || USER_MP_ACCESS_TOKEN,
+        mpClientId: body.mpClientId || '',
+        mpClientSecret: body.mpClientSecret || '',
 
         stripeActive: Boolean(body.stripeActive),
         stripeMode: body.stripeMode || 'sandbox',

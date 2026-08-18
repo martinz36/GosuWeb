@@ -73,6 +73,8 @@ export const storeSettings = sqliteTable('store_settings', {
   mpAccessSandboxToken: text('mp_access_sandbox_token'),
   mpPublicProdKey: text('mp_public_prod_key'),
   mpAccessProdToken: text('mp_access_prod_token'),
+  mpClientId: text('mp_client_id'),
+  mpClientSecret: text('mp_client_secret'),
 
   stripeActive: integer('stripe_active', { mode: 'boolean' }).notNull().default(false),
   stripeMode: text('stripe_mode').notNull().default('sandbox'),

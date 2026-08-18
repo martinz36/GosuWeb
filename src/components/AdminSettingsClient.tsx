@@ -10,6 +10,8 @@ interface StoreSettingsData {
   mpAccessSandboxToken: string;
   mpPublicProdKey: string;
   mpAccessProdToken: string;
+  mpClientId: string;
+  mpClientSecret: string;
 
   stripeActive: boolean;
   stripeMode: 'sandbox' | 'production';
@@ -52,8 +54,8 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
   const [saving, setSaving] = useState(false);
 
   // Show/Hide Secrets toggles
-  const [showMpSandboxToken, setShowMpSandboxToken] = useState(false);
   const [showMpProdToken, setShowMpProdToken] = useState(false);
+  const [showMpClientSecret, setShowMpClientSecret] = useState(false);
   const [showStripeSecret, setShowStripeSecret] = useState(false);
 
   // Settings State
@@ -64,6 +66,8 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
     mpAccessSandboxToken: MP_USER_ACCESS_TOKEN,
     mpPublicProdKey: MP_USER_PUBLIC_KEY,
     mpAccessProdToken: MP_USER_ACCESS_TOKEN,
+    mpClientId: '',
+    mpClientSecret: '',
 
     stripeActive: false,
     stripeMode: 'sandbox',
@@ -106,6 +110,8 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
           mpAccessSandboxToken: dataSettings.settings.mpAccessSandboxToken || MP_USER_ACCESS_TOKEN,
           mpPublicProdKey: dataSettings.settings.mpPublicProdKey || MP_USER_PUBLIC_KEY,
           mpAccessProdToken: dataSettings.settings.mpAccessProdToken || MP_USER_ACCESS_TOKEN,
+          mpClientId: dataSettings.settings.mpClientId || '',
+          mpClientSecret: dataSettings.settings.mpClientSecret || '',
 
           stripeActive: Boolean(dataSettings.settings.stripeActive),
           stripeMode: dataSettings.settings.stripeMode || 'sandbox',
@@ -151,7 +157,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
 
       const data = await res.json();
       if (data.success) {
-        alert('¡Credenciales de Mercado Pago y configuración guardadas con éxito en Neon DB!');
+        alert('¡Credenciales de Mercado Pago guardadas con éxito en Neon DB!');
       } else {
         alert('Error: ' + data.error);
       }
@@ -359,7 +365,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                           }
                           className="bg-black border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-[#00e8ff] font-bold focus:outline-none"
                         >
-                          <option value="production">Modo Producción</option>
+                          <option value="production">Modo Producción (Real)</option>
                           <option value="sandbox">Modo Sandbox (Pruebas)</option>
                         </select>
 
@@ -393,7 +399,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                       
                       {/* Public Key */}
                       <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-2">
-                        <h4 className="text-xs font-bold uppercase text-[#00e8ff]">🔑 Public Key</h4>
+                        <h4 className="text-xs font-bold uppercase text-[#00e8ff]">🔑 Public Key *</h4>
                         <input
                           type="text"
                           value={settings.mpPublicProdKey}
@@ -412,11 +418,11 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                       {/* Access Token */}
                       <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-2">
                         <div className="flex justify-between items-center">
-                          <h4 className="text-xs font-bold uppercase text-emerald-400">🔒 Access Token</h4>
+                          <h4 className="text-xs font-bold uppercase text-emerald-400">🔒 Access Token *</h4>
                           <button
                             type="button"
                             onClick={() => setShowMpProdToken(!showMpProdToken)}
-                            className="text-[10px] text-zinc-400 hover:text-white uppercase"
+                            className="text-[10px] text-zinc-400 hover:text-white uppercase font-bold"
                           >
                             {showMpProdToken ? 'Ocultar' : 'Mostrar'}
                           </button>
@@ -433,6 +439,49 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                           }
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
                           placeholder="APP_USR-..."
+                        />
+                      </div>
+
+                      {/* Client ID */}
+                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-2">
+                        <h4 className="text-xs font-bold uppercase text-[#00e8ff]">🆔 Client ID (ID de Aplicación)</h4>
+                        <input
+                          type="text"
+                          value={settings.mpClientId}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              mpClientId: e.target.value,
+                            })
+                          }
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
+                          placeholder="Ej: 3957004131601630"
+                        />
+                      </div>
+
+                      {/* Client Secret */}
+                      <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-2">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold uppercase text-emerald-400">🔐 Client Secret (Clave Secreta)</h4>
+                          <button
+                            type="button"
+                            onClick={() => setShowMpClientSecret(!showMpClientSecret)}
+                            className="text-[10px] text-zinc-400 hover:text-white uppercase font-bold"
+                          >
+                            {showMpClientSecret ? 'Ocultar' : 'Mostrar'}
+                          </button>
+                        </div>
+                        <input
+                          type={showMpClientSecret ? 'text' : 'password'}
+                          value={settings.mpClientSecret}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              mpClientSecret: e.target.value,
+                            })
+                          }
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-[#00e8ff]"
+                          placeholder="Clave Secreta de Aplicación"
                         />
                       </div>
 
@@ -688,7 +737,7 @@ export default function AdminSettingsClient({ locale }: { locale: string }) {
                 <button
                   type="button"
                   onClick={() => setIsZoneModalOpen(false)}
-                  className="px-5 py-3 rounded-xl border border-zinc-800 text-zinc-400 text-xs font-bold uppercase hover:text-white"
+                  className="px-5 py-3 rounded-xl border border-zinc-850 text-zinc-400 text-xs font-bold uppercase hover:text-white"
                 >
                   Cancelar
                 </button>

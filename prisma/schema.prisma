@@ -175,6 +175,8 @@ model StoreSettings {
   mpAccessSandboxToken  String?
   mpPublicProdKey       String?
   mpAccessProdToken     String?
+  mpClientId            String?
+  mpClientSecret        String?
 
   // Stripe
   stripeActive          Boolean  @default(false)
