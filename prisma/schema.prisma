@@ -21,6 +21,12 @@ enum EstadoEnvio {
   entregado
 }
 
+enum EstadoAfiliado {
+  pendiente
+  aprobado
+  rechazado
+}
+
 model Categoria {
   id        String     @id @default(cuid())
   nombre    String
@@ -97,18 +103,19 @@ model AdminUser {
 }
 
 model Orden {
-  id           String      @id @default(cuid())
-  numeroOrden  Int         @unique @default(autoincrement())
+  id           String        @id @default(cuid())
+  numeroOrden  Int           @unique @default(autoincrement())
   clienteEmail String
-  total        Decimal     @db.Decimal(10, 2)
-  estadoPago   EstadoPago  @default(pendiente)
-  estadoEnvio  EstadoEnvio @default(procesando)
-  datosEnvio   Json        // JSON con dirección, nombre, teléfono, etc.
+  total        Decimal       @db.Decimal(10, 2)
+  estadoPago   EstadoPago    @default(pendiente)
+  estadoEnvio  EstadoEnvio   @default(procesando)
+  datosEnvio   Json          // JSON con dirección, nombre, teléfono, etc.
 
   items        ItemOrden[]
+  referralSale ReferralSale?
 
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model ItemOrden {
@@ -121,4 +128,38 @@ model ItemOrden {
 
   varianteId     String
   variante       Variante @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+}
+
+// PROGRAMA DE AFILIADOS (AFFILIATE MARKETING MODULE)
+model Affiliate {
+  id             String         @id @default(cuid())
+  name           String
+  email          String         @unique
+  passwordHash   String?
+  code           String         @unique // Ej: "GOSU-CARLOS"
+  commissionRate Decimal        @default(10.00) @db.Decimal(5, 2) // Porcentaje ej: 10.00%
+  balancePending Decimal        @default(0.00) @db.Decimal(10, 2)
+  balancePaid    Decimal        @default(0.00) @db.Decimal(10, 2)
+  paymentInfo    String?        // Yape, Plin, CCI, Banco
+  status         EstadoAfiliado @default(aprobado)
+  totalClicks    Int            @default(0)
+
+  sales          ReferralSale[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model ReferralSale {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  orderId     String    @unique
+  order       Orden     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderAmount Decimal   @db.Decimal(10, 2)
+  commission  Decimal   @db.Decimal(10, 2)
+  status      String    @default("pending") // "pending" | "paid"
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }

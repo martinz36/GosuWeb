@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { token, email, name, phone, address, total, items } = body;
+    const { token, email, name, phone, address, total, items, refCode } = body;
 
     if (!token || !email || !name || !phone || !address || !total || !items || items.length === 0) {
       return NextResponse.json(
@@ -17,7 +17,6 @@ export async function POST(request: Request) {
     const variantsToUpdate: Array<{ id: string; newStock: number }> = [];
 
     for (const item of items) {
-      // Find variant if variantId is provided, or find first variant of product
       let variant = null;
       if (item.variantId) {
         variant = await prisma.variante.findUnique({ where: { id: item.variantId } });
@@ -105,6 +104,7 @@ export async function POST(request: Request) {
           telefono: phone,
           direccion: address,
           paymentId: paymentId,
+          refCode: refCode || null,
         },
         items: {
           create: items.map((item: any) => ({
@@ -122,6 +122,41 @@ export async function POST(request: Request) {
         where: { id: update.id },
         data: { stock: update.newStock },
       });
+    }
+
+    // --- 5. Process Affiliate Referral Commission ---
+    if (refCode) {
+      try {
+        const affiliate = await prisma.affiliate.findUnique({
+          where: { code: refCode },
+        });
+
+        if (affiliate && affiliate.status === 'aprobado') {
+          const rate = Number(affiliate.commissionRate) || 10;
+          const commissionAmount = Number(total) * (rate / 100);
+
+          // Update affiliate pending balance
+          await prisma.affiliate.update({
+            where: { id: affiliate.id },
+            data: {
+              balancePending: { increment: commissionAmount },
+            },
+          });
+
+          // Record referral sale transaction
+          await prisma.referralSale.create({
+            data: {
+              affiliateId: affiliate.id,
+              orderId: newOrden.id,
+              orderAmount: total,
+              commission: commissionAmount,
+              status: 'pending',
+            },
+          });
+        }
+      } catch (affErr) {
+        console.error('Error processing affiliate commission:', affErr);
+      }
     }
 
     return NextResponse.json({

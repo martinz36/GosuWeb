@@ -36,3 +36,29 @@ export const orderItems = sqliteTable('order_items', {
   quantity: integer('quantity').notNull(),
   price: real('price').notNull(),
 });
+
+// PROGRAMA DE AFILIADOS (Drizzle Schema)
+export const affiliates = sqliteTable('affiliates', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash'),
+  code: text('code').notNull().unique(), // e.g. "GOSU-CARLOS"
+  commissionRate: real('commission_rate').notNull().default(10.0), // Percentage e.g. 10%
+  balancePending: real('balance_pending').notNull().default(0.0),
+  balancePaid: real('balance_paid').notNull().default(0.0),
+  paymentInfo: text('payment_info'), // Yape, Plin, CCI, Banco
+  status: text('status').notNull().default('aprobado'), // 'pendiente' | 'aprobado' | 'rechazado'
+  totalClicks: integer('total_clicks').notNull().default(0),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const referralSales = sqliteTable('referral_sales', {
+  id: text('id').primaryKey(),
+  affiliateId: text('affiliate_id').notNull().references(() => affiliates.id),
+  orderId: text('order_id').notNull().references(() => orders.id),
+  orderAmount: real('order_amount').notNull(),
+  commission: real('commission').notNull(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'paid'
+  createdAt: integer('created_at').notNull(),
+});

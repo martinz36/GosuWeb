@@ -57,6 +57,15 @@ export default function AdminSidebar({ locale, orderCount = 0 }: AdminSidebarPro
       ),
     },
     {
+      label: 'Programa Afiliados',
+      href: `/${locale}/admin/afiliados`,
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5 text-[#00e8ff]">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+        </svg>
+      ),
+    },
+    {
       label: 'Configuración',
       href: `/${locale}/admin/settings`,
       icon: (
@@ -203,7 +212,20 @@ export default function AdminSidebar({ locale, orderCount = 0 }: AdminSidebarPro
             <span>Descuentos / Cupones</span>
           </Link>
 
-          {/* 6. Configuración */}
+          {/* 6. Programa Afiliados */}
+          <Link
+            href={`/${locale}/admin/afiliados`}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all ${
+              pathname === `/${locale}/admin/afiliados`
+                ? 'bg-zinc-900 text-[#00e8ff] border border-zinc-800 shadow-sm'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
+            }`}
+          >
+            {navItems[4].icon}
+            <span>Programa Afiliados</span>
+          </Link>
+
+          {/* 7. Configuración */}
           <Link
             href={`/${locale}/admin/settings`}
             className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all ${
@@ -212,7 +234,7 @@ export default function AdminSidebar({ locale, orderCount = 0 }: AdminSidebarPro
                 : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
             }`}
           >
-            {navItems[4].icon}
+            {navItems[5].icon}
             <span>Configuración</span>
           </Link>
 
