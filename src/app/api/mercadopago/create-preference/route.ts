@@ -26,13 +26,17 @@ export async function POST(request: Request) {
       console.warn('Could not query StoreSettings table in DB, using default fallback credentials:', dbErr);
     }
 
+    const isSandboxMode = settings?.mercadoPagoMode === 'sandbox' || !settings?.mercadoPagoMode;
+
     const accessToken =
+      (isSandboxMode ? settings?.mpAccessSandboxToken : settings?.mpAccessProdToken) ||
       settings?.mpAccessProdToken ||
       settings?.mpAccessSandboxToken ||
       process.env.MP_ACCESS_TOKEN ||
       defaultAccessToken;
 
     const publicKey =
+      (isSandboxMode ? settings?.mpPublicSandboxKey : settings?.mpPublicProdKey) ||
       settings?.mpPublicProdKey ||
       settings?.mpPublicSandboxKey ||
       process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ||
@@ -55,10 +59,6 @@ export async function POST(request: Request) {
     // 3. Create Preference via Mercado Pago REST API
     const preferencePayload: any = {
       items: mpItems,
-      payer: {
-        name: name,
-        email: email,
-      },
       back_urls: {
         success: `${origin}/es/checkout/success?status=approved`,
         failure: `${origin}/es/checkout?status=failure`,
@@ -82,7 +82,15 @@ export async function POST(request: Request) {
       statement_descriptor: 'GOSU ACCESSORIES',
     };
 
-    // Only send notification_url to Mercado Pago if running on HTTPS (Mercado Pago rejects http:// localhost URLs)
+    // In Sandbox mode, passing a real user email in payer causes Mercado Pago's "Una de las partes es de prueba" fatal error.
+    // Omit email from payer in Sandbox or pass test user email so Sandbox gateway renders cleanly.
+    if (!isSandboxMode && email) {
+      preferencePayload.payer = { name, email };
+    } else {
+      preferencePayload.payer = { name };
+    }
+
+    // Only send notification_url to Mercado Pago if running on HTTPS
     if (isHttps) {
       preferencePayload.notification_url = `${origin}/api/mercadopago/webhook`;
     }
@@ -101,7 +109,7 @@ export async function POST(request: Request) {
     if (!mpResponse.ok) {
       console.error('Mercado Pago API returned error:', preferenceData);
       
-      // If Mercado Pago returns error (e.g. sandbox constraints or invalid test account), return mock init point fallback
+      // Fallback for testing if Mercado Pago API rejects preference
       return NextResponse.json({
         success: true,
         preferenceId: 'pref_mock_' + Math.random().toString(36).substring(2, 10),
@@ -112,15 +120,15 @@ export async function POST(request: Request) {
       });
     }
 
-    // Always use sandbox_init_point when present for test credentials to avoid "una de las partes es de prueba" error
-    const initPoint = preferenceData.sandbox_init_point || preferenceData.init_point;
+    // Pick appropriate init_point based on mode
+    const initPoint = isSandboxMode
+      ? preferenceData.sandbox_init_point || preferenceData.init_point
+      : preferenceData.init_point || preferenceData.sandbox_init_point;
 
     return NextResponse.json({
       success: true,
       preferenceId: preferenceData.id,
       initPoint: initPoint,
-      sandboxInitPoint: preferenceData.sandbox_init_point,
-      prodInitPoint: preferenceData.init_point,
       publicKey: publicKey,
       isMock: false,
     });
