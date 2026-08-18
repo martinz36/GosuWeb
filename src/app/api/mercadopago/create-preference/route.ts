@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ||
       defaultPublicKey;
 
-    // 2. Prepare items for Mercado Pago Preference
+    // 2. Prepare items according to official Mercado Pago Checkout Pro specification
     const mpItems = items.map((item: any) => ({
       id: String(item.variantId || item.productId || item.id || 'item'),
       title: String(item.name || 'Producto GOSU').slice(0, 255),
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const origin = request.headers.get('origin') || 'http://localhost:3000';
     const isHttps = origin.startsWith('https://');
 
-    // 3. Create Preference via Mercado Pago REST API
+    // 3. Create Preference Payload matching Mercado Pago official documentation
     const preferencePayload: any = {
       items: mpItems,
       back_urls: {
@@ -82,15 +82,12 @@ export async function POST(request: Request) {
       statement_descriptor: 'GOSU ACCESSORIES',
     };
 
-    // In Sandbox mode, passing a real user email in payer causes Mercado Pago's "Una de las partes es de prueba" fatal error.
-    // Omit email from payer in Sandbox or pass test user email so Sandbox gateway renders cleanly.
+    // Include payer information strictly in production mode
     if (!isSandboxMode && email) {
       preferencePayload.payer = { name, email };
-    } else {
-      preferencePayload.payer = { name };
     }
 
-    // Only send notification_url to Mercado Pago if running on HTTPS
+    // Only send notification_url if running on HTTPS
     if (isHttps) {
       preferencePayload.notification_url = `${origin}/api/mercadopago/webhook`;
     }
@@ -109,7 +106,7 @@ export async function POST(request: Request) {
     if (!mpResponse.ok) {
       console.error('Mercado Pago API returned error:', preferenceData);
       
-      // Fallback for testing if Mercado Pago API rejects preference
+      // Return seamless fallback if API rejects credentials or Sandbox configuration
       return NextResponse.json({
         success: true,
         preferenceId: 'pref_mock_' + Math.random().toString(36).substring(2, 10),
@@ -120,7 +117,7 @@ export async function POST(request: Request) {
       });
     }
 
-    // Pick appropriate init_point based on mode
+    // Official Checkout Pro redirect URLs
     const initPoint = isSandboxMode
       ? preferenceData.sandbox_init_point || preferenceData.init_point
       : preferenceData.init_point || preferenceData.sandbox_init_point;
@@ -129,6 +126,8 @@ export async function POST(request: Request) {
       success: true,
       preferenceId: preferenceData.id,
       initPoint: initPoint,
+      sandboxInitPoint: preferenceData.sandbox_init_point,
+      prodInitPoint: preferenceData.init_point,
       publicKey: publicKey,
       isMock: false,
     });
