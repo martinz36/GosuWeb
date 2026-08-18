@@ -41,20 +41,32 @@ export default function ProductDetailClient({
   const { addToCart, cartCount, setIsCartOpen } = useCart();
   const router = useRouter();
 
+  // Process Images List
   const images = product.imagenes && product.imagenes.length > 0
     ? product.imagenes.map((img: string) => sanitizeImgUrl(img))
     : ['/assets/images/image-4f57375b.jpg'];
 
   const [activeImgIndex, setActiveImgIndex] = useState(0);
+
+  // Active Selected Variant State
   const [selectedVariant, setSelectedVariant] = useState<any>(
     product.variantes && product.variantes.length > 0 ? product.variantes[0] : null
   );
   const [quantity, setQuantity] = useState(1);
 
+  // Dynamic Calculated Fields
   const currentPrice = selectedVariant ? Number(selectedVariant.precio) : Number(product.precioBase || 15);
-  const currentStock = selectedVariant ? selectedVariant.stock : (product.stockTotal || 150);
+  // Compare Price (e.g. 20% higher than current price for discount presentation)
+  const comparePrice = selectedVariant?.precioComparacion
+    ? Number(selectedVariant.precioComparacion)
+    : currentPrice * 1.2;
+
+  const currentStock = selectedVariant ? selectedVariant.stock : (product.stockTotal || 0);
+  const isOutOfStock = currentStock <= 0;
 
   const handleAddToCart = () => {
+    if (isOutOfStock) return;
+
     addToCart(
       {
         cartItemId: `${product.id}-${selectedVariant?.id || 'default'}`,
@@ -69,17 +81,19 @@ export default function ProductDetailClient({
         stock: currentStock,
       },
       quantity,
-      true // Open cart drawer on add
+      true // Open cart drawer automatically
     );
   };
+
+  const isHtml = product.descripcion && /<[a-z][\s\S]*>/i.test(product.descripcion);
 
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-[#00e8ff] selection:text-black relative" data-framer-cursor="c54oa2">
       
-      {/* 1. Framer Style Navbar */}
+      {/* 1. Transparent Framer Navbar */}
       <ShopNavbar locale={locale} dict={dict} />
 
-      {/* 2. Breadcrumb Navigation */}
+      {/* 2. Breadcrumb Trail */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 pt-8 font-opensauce text-xs text-zinc-400 flex items-center gap-2">
         <Link href={`/${locale}/shop`} className="hover:text-[#00e8ff] transition-colors">
           {isEs ? 'Tienda' : 'Store'}
@@ -94,38 +108,46 @@ export default function ProductDetailClient({
         <span className="text-white font-bold line-clamp-1">{product.nombre}</span>
       </div>
 
-      {/* 3. Main Product Detail Section */}
+      {/* 3. Main 2-Column Product Detail Layout */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           
-          {/* Left Column: Image Gallery */}
+          {/* COLUMN 1 (LEFT): IMAGE GALLERY */}
           <div className="space-y-4">
             {/* Main High-Res Image Box */}
-            <div className="relative aspect-square w-full rounded-3xl bg-zinc-950/80 border border-zinc-850 overflow-hidden flex items-center justify-center p-8 backdrop-blur-md shadow-2xl">
+            <div className="relative aspect-square w-full rounded-3xl bg-zinc-950/80 border border-zinc-850 overflow-hidden flex items-center justify-center p-8 backdrop-blur-md shadow-2xl group">
               <Image
                 src={images[activeImgIndex] || images[0]}
                 alt={product.nombre}
                 fill
                 priority
-                className="object-contain p-6 transform hover:scale-105 transition-transform duration-300"
+                className="object-contain p-6 transform group-hover:scale-105 transition-transform duration-300"
               />
               
-              {/* Live Stock Badge */}
-              <span className="absolute top-4 right-4 bg-emerald-950/90 text-emerald-400 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-900/60 font-opensauce">
-                Stock: {currentStock} u.
-              </span>
+              {/* Dynamic Live Stock Badge */}
+              <div className="absolute top-4 right-4 font-opensauce">
+                {isOutOfStock ? (
+                  <span className="bg-red-950/90 text-red-400 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-red-900/60 shadow-[0_0_10px_rgba(239,68,68,0.3)]">
+                    🚫 AGOTADO
+                  </span>
+                ) : (
+                  <span className="bg-emerald-950/90 text-emerald-400 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-900/60 shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                    ✓ EN STOCK ({currentStock} u.)
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Thumbnail Selector */}
+            {/* Interactive Thumbnail Selector Grid */}
             {images.length > 1 && (
               <div className="flex flex-wrap gap-3">
                 {images.map((img: string, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => setActiveImgIndex(idx)}
-                    className={`relative w-20 h-20 rounded-xl bg-black border overflow-hidden transition-all ${
+                    className={`relative w-20 h-20 rounded-2xl bg-black border overflow-hidden transition-all ${
                       activeImgIndex === idx
-                        ? 'border-[#00e8ff] shadow-[0_0_10px_rgba(0,232,255,0.4)] scale-105'
+                        ? 'border-[#00e8ff] shadow-[0_0_12px_rgba(0,232,255,0.4)] scale-105'
                         : 'border-zinc-850 hover:border-zinc-700 opacity-60 hover:opacity-100'
                     }`}
                   >
@@ -136,13 +158,13 @@ export default function ProductDetailClient({
             )}
           </div>
 
-          {/* Right Column: Product Information & Purchase Bar */}
-          <div className="space-y-8">
+          {/* COLUMN 2 (RIGHT): PRODUCT DETAILS & PURCHASING CONTROLS */}
+          <div className="space-y-8 font-opensauce">
             
-            {/* Category & Title */}
+            {/* Title & Category Badge */}
             <div className="space-y-3">
               {product.categoria && (
-                <span className="inline-block bg-zinc-900 border border-zinc-800 text-[#00e8ff] text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full font-opensauce">
+                <span className="inline-block bg-zinc-900 border border-zinc-800 text-[#00e8ff] text-[10px] font-black uppercase tracking-widest px-3.5 py-1 rounded-full">
                   {product.categoria.nombre}
                 </span>
               )}
@@ -151,71 +173,66 @@ export default function ProductDetailClient({
                 {product.nombre}
               </h1>
 
-              {/* Price Tag */}
-              <div className="pt-2 flex items-baseline gap-3">
+              {/* Price & Compare Price Display */}
+              <div className="pt-2 flex items-baseline gap-4">
                 <span className="text-4xl font-black font-sigher text-white glow-cyan">
                   S/. {currentPrice.toFixed(2)}
                 </span>
-                {selectedVariant?.sku && (
-                  <span className="text-xs text-zinc-500 font-mono">
-                    SKU: {selectedVariant.sku}
+
+                {comparePrice > currentPrice && (
+                  <span className="text-lg text-zinc-500 line-through font-sigher">
+                    S/. {comparePrice.toFixed(2)}
+                  </span>
+                )}
+
+                {comparePrice > currentPrice && (
+                  <span className="bg-[#ff09bb] text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full animate-pulse">
+                    OFERTA GOSU
                   </span>
                 )}
               </div>
+
+              {selectedVariant?.sku && (
+                <p className="text-xs text-zinc-500 font-mono">
+                  SKU: <span className="text-zinc-300">{selectedVariant.sku}</span>
+                </p>
+              )}
             </div>
 
-            {/* Product Description */}
-            <div className="space-y-2 border-t border-zinc-850 pt-6">
-              <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest font-opensauce">
-                {isEs ? 'Descripción del Producto' : 'Product Description'}
-              </h4>
-              <p className="text-sm text-zinc-300 font-inter leading-relaxed">
-                {product.descripcion}
-              </p>
-            </div>
-
-            {/* Specifications Highlights */}
-            <div className="bg-zinc-950/90 border border-zinc-850 rounded-2xl p-5 space-y-3 font-opensauce backdrop-blur-md">
-              <h4 className="text-xs font-bold text-[#00e8ff] uppercase tracking-wider">
-                {isEs ? 'Especificaciones Técnicas' : 'Technical Specifications'}
-              </h4>
-              <ul className="text-xs text-zinc-300 space-y-2 font-inter">
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#00e8ff]" />
-                  <span>{isEs ? 'Paquete de 102 unidades por pack' : '102 units per pack'}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#00e8ff]" />
-                  <span>{isEs ? '100 y 140 micras de grosor ultra resistente' : '100 & 140 microns ultra durable thickness'}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#00e8ff]" />
-                  <span>{isEs ? 'ACID & PVC FREE (Libres de Ácido y PVC)' : 'Acid & PVC Free'}</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Variant Option Selector */}
+            {/* Interactive Variant Option Selector Buttons */}
             {product.variantes && product.variantes.length > 0 && (
-              <div className="space-y-3 font-opensauce">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                  {isEs ? 'Seleccionar Variante / Tamaño:' : 'Select Variant / Size:'}
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="space-y-3 border-t border-zinc-850 pt-6">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                    {isEs ? 'Seleccionar Variante / Opciones:' : 'Select Variant / Options:'}
+                  </label>
+                  <span className="text-[10px] text-[#00e8ff] font-bold uppercase">
+                    {selectedVariant?.titulo}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {product.variantes.map((v: any) => {
                     const isSelected = selectedVariant?.id === v.id;
+                    const vStock = v.stock;
                     return (
                       <button
                         key={v.id}
                         onClick={() => setSelectedVariant(v)}
-                        className={`flex items-center justify-between p-3.5 rounded-xl border text-xs font-bold transition-all text-left ${
+                        className={`flex items-center justify-between p-4 rounded-2xl border text-xs font-bold transition-all text-left ${
                           isSelected
-                            ? 'bg-white text-black border-white shadow-[0_0_12px_rgba(255,255,255,0.4)] scale-102'
+                            ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.4)] scale-102'
                             : 'bg-zinc-950 text-zinc-300 border-zinc-850 hover:border-zinc-700 hover:text-white'
                         }`}
                       >
-                        <span>{v.titulo}</span>
-                        <span className="font-sigher text-sm font-black">
+                        <div className="space-y-0.5">
+                          <span className="block font-bold">{v.titulo}</span>
+                          <span className="text-[9px] text-zinc-500 block font-mono">
+                            {vStock > 0 ? `${vStock} disponibles` : 'Sin stock'}
+                          </span>
+                        </div>
+
+                        <span className="font-sigher text-base font-black">
                           S/. {Number(v.precio).toFixed(2)}
                         </span>
                       </button>
@@ -225,42 +242,90 @@ export default function ProductDetailClient({
               </div>
             )}
 
-            {/* Quantity Selector & Add to Cart Action */}
+            {/* Quantity Controls & Primary Framer CTA Button */}
             <div className="space-y-4 pt-4 border-t border-zinc-850">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                 
-                {/* Quantity Controls */}
-                <div className="flex items-center border border-zinc-800 rounded-full bg-black px-3 py-2 font-opensauce">
+                {/* Quantity Picker (- 1 +) */}
+                <div className="flex items-center justify-between border border-zinc-800 rounded-full bg-black px-4 py-3 sm:py-2.5">
                   <button
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="px-3 py-1 text-zinc-400 hover:text-white text-sm font-bold"
+                    disabled={isOutOfStock}
+                    className="px-2 text-zinc-400 hover:text-white text-base font-bold disabled:opacity-30"
                   >
                     -
                   </button>
-                  <span className="px-3 text-sm font-extrabold text-white">{quantity}</span>
+                  <span className="px-4 text-sm font-extrabold text-white font-mono">{quantity}</span>
                   <button
                     onClick={() => setQuantity((q) => Math.min(currentStock, q + 1))}
-                    className="px-3 py-1 text-zinc-400 hover:text-white text-sm font-bold"
+                    disabled={isOutOfStock}
+                    className="px-2 text-zinc-400 hover:text-white text-base font-bold disabled:opacity-30"
                   >
                     +
                   </button>
                 </div>
 
-                {/* Add to Cart CTA Button */}
+                {/* Main Call To Action Button (Framer Style) */}
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 rounded-full bg-[#00e8ff] text-black font-extrabold uppercase tracking-widest text-xs py-4 px-6 hover:bg-white hover:shadow-[0_0_25px_rgba(0,232,255,0.5)] transition-all transform hover:scale-102 font-opensauce shadow-[0_0_15px_rgba(0,232,255,0.3)]"
+                  disabled={isOutOfStock}
+                  className={`flex-1 rounded-full text-black font-extrabold uppercase tracking-widest text-xs py-4 px-8 transition-all transform font-opensauce ${
+                    isOutOfStock
+                      ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700'
+                      : 'bg-[#00e8ff] hover:bg-white hover:shadow-[0_0_25px_rgba(0,232,255,0.5)] hover:scale-102 shadow-[0_0_15px_rgba(0,232,255,0.3)]'
+                  }`}
                 >
-                  {dict?.cart?.add || (isEs ? 'AGREGAR AL CARRITO' : 'ADD TO CART')}
+                  {isOutOfStock
+                    ? (isEs ? 'PRODUCTO AGOTADO' : 'OUT OF STOCK')
+                    : (dict?.cart?.add || (isEs ? 'AGREGAR AL CARRITO 🛒' : 'ADD TO CART 🛒'))}
                 </button>
               </div>
+            </div>
+
+            {/* Product Description (Supports Rich Text HTML or Plain Text) */}
+            <div className="space-y-3 border-t border-zinc-850 pt-6">
+              <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                {isEs ? 'Descripción Detallada' : 'Detailed Description'}
+              </h4>
+
+              {isHtml ? (
+                <div
+                  className="text-sm text-zinc-300 font-inter leading-relaxed prose prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: product.descripcion }}
+                />
+              ) : (
+                <p className="text-sm text-zinc-300 font-inter leading-relaxed whitespace-pre-line">
+                  {product.descripcion}
+                </p>
+              )}
+            </div>
+
+            {/* Technical Highlights Box */}
+            <div className="bg-zinc-950/90 border border-zinc-850 rounded-2xl p-5 space-y-3 backdrop-blur-md">
+              <h4 className="text-xs font-bold text-[#00e8ff] uppercase tracking-wider">
+                🛡️ Garantía de Calidad GOSU®
+              </h4>
+              <ul className="text-xs text-zinc-300 space-y-2 font-inter">
+                <li className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00e8ff]" />
+                  <span>100 y 140 micras de polipropileno de alta densidad</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00e8ff]" />
+                  <span>Libres de Ácido y PVC (ACID & PVC FREE)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00e8ff]" />
+                  <span>Despacho directo y stock asegurado en tiempo real</span>
+                </li>
+              </ul>
             </div>
 
           </div>
 
         </div>
 
-        {/* Related Products Section */}
+        {/* Related Products Grid */}
         {relatedProducts.length > 0 && (
           <div className="mt-24 space-y-8 border-t border-zinc-850 pt-12">
             <h3 className="text-2xl font-black uppercase font-sigher tracking-wider text-white glow-cyan">
@@ -308,36 +373,10 @@ export default function ProductDetailClient({
 
       </main>
 
-      {/* 4. Framer Style Footer */}
+      {/* Footer */}
       <ShopFooter locale={locale} />
 
-      {/* Floating Cart Button & Sliding Cart Drawer */}
-      <button
-        onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-[0_0_20px_rgba(0,232,255,0.4)] border border-zinc-800 transition-all hover:bg-[#00e8ff] hover:scale-105"
-        title={dict.cart.title}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          className="h-6 w-6"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-          />
-        </svg>
-        {cartCount > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ff09bb] text-[10px] font-extrabold text-white animate-pulse">
-            {cartCount}
-          </span>
-        )}
-      </button>
-
+      {/* Sliding Cart Drawer */}
       <CartDrawer locale={locale} dict={dict.cart} />
 
     </div>
