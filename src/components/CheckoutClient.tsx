@@ -1,12 +1,40 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import ShopNavbar from './ShopNavbar';
 import ShopFooter from './ShopFooter';
+
+interface CountryCodeOption {
+  code: string;
+  country: string;
+  flag: string;
+}
+
+const COUNTRY_CODES: CountryCodeOption[] = [
+  { code: '+51', country: 'Perú', flag: '🇵🇪' },
+  { code: '+52', country: 'México', flag: '🇲🇽' },
+  { code: '+56', country: 'Chile', flag: '🇨🇱' },
+  { code: '+506', country: 'Costa Rica', flag: '🇨🇷' },
+  { code: '+57', country: 'Colombia', flag: '🇨🇴' },
+  { code: '+1', country: 'EE.UU. / Canadá', flag: '🇺🇸' },
+  { code: '+34', country: 'España', flag: '🇪🇸' },
+  { code: '+54', country: 'Argentina', flag: '🇦🇷' },
+];
+
+const REGIONS_BY_COUNTRY: Record<string, string[]> = {
+  PE: ['Lima', 'Arequipa', 'Cusco', 'La Libertad', 'Lambayeque', 'Piura', 'Junín', 'Callao', 'Moquegua', 'Tacna', 'Ancash', 'Puno', 'Ica', 'Cajamarca'],
+  MX: ['CDMX', 'Jalisco', 'Nuevo León', 'Estado de México', 'Puebla', 'Guanajuato', 'Yucatán', 'Querétaro'],
+  CL: ['Región Metropolitana', 'Valparaíso', 'Biobío', 'Antofagasta', 'Araucanía', 'Coquimbo'],
+  CR: ['San José', 'Alajuela', 'Cartago', 'Heredia', 'Guanacaste', 'Puntarenas', 'Limón'],
+  CO: ['Bogotá D.C.', 'Antioquia', 'Valle del Cauca', 'Cundinamarca', 'Atlántico'],
+  US: ['California', 'Florida', 'Texas', 'New York', 'Illinois'],
+  ES: ['Madrid', 'Cataluña', 'Andalucía', 'Comunidad Valenciana'],
+  AR: ['Buenos Aires', 'Córdoba', 'Santa Fe', 'Mendoza'],
+};
 
 export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; dict: any }) {
   const isEs = locale === 'es';
@@ -20,14 +48,30 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
     clearCart,
   } = useCart();
 
-  // Customer Shipping & Billing Form State
+  // Customer Contact & Shipping Form State
   const [formData, setFormData] = useState({
     name: 'Carlos Mendoza',
     email: 'carlos.mendoza@gmail.com',
+    countryCode: '+51',
     phone: '987654321',
-    address: 'Av. Primavera 123, Of. 402, Surco',
-    city: 'Lima',
-    notes: 'Entregar en portería del edificio.',
+    
+    // Structured Shipping Address
+    country: 'PE',
+    state: 'Lima',
+    cityDistrict: 'Miraflores',
+    zipCode: '15074',
+    streetAddress: 'Av. Benavides 1234, Dpto 402',
+    reference: 'Frente al Parque Reducto, timbre 4',
+
+    // Billing Info (B2B & Fiscal)
+    sameAsShipping: true,
+    billingTaxId: '',
+    billingCompanyName: '',
+    billingCountry: 'PE',
+    billingState: 'Lima',
+    billingCityDistrict: '',
+    billingZipCode: '',
+    billingStreetAddress: '',
   });
 
   // Payment Gateway Selector: 'mercadopago' | 'culqi'
@@ -35,12 +79,28 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Shipping Cost: S/. 12.00
-  const shippingCost = 12.0;
+  // Dynamic Shipping Cost
+  const shippingCost = formData.country === 'PE' ? 12.0 : 45.0; // International shipping S/. 45.00
   const grandTotal = finalTotal + (cartItems.length > 0 ? shippingCost : 0);
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData({ ...formData, [name]: checked });
+    } else if (name === 'country') {
+      // Auto-update default region state when country changes
+      const defaultState = REGIONS_BY_COUNTRY[value]?.[0] || 'Otra Región';
+      setFormData({ ...formData, country: value, state: defaultState });
+    } else if (name === 'billingCountry') {
+      const defaultState = REGIONS_BY_COUNTRY[value]?.[0] || 'Otra Región';
+      setFormData({ ...formData, billingCountry: value, billingState: defaultState });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleProcessPayment = async (e: React.FormEvent) => {
@@ -54,35 +114,35 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
     setErrorMessage(null);
 
     const refCode = typeof window !== 'undefined' ? localStorage.getItem('gosu_ref_code') : null;
+    const fullPhone = `${formData.countryCode} ${formData.phone}`;
+    const fullShippingAddress = `${formData.streetAddress}, ${formData.cityDistrict}, ${formData.state}, ${formData.country} (Zip: ${formData.zipCode}). Ref: ${formData.reference}`;
 
     if (paymentGateway === 'mercadopago') {
       try {
-        // 1. Call Mercado Pago Create Preference API Route
         const res = await fetch('/api/mercadopago/create-preference', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: formData.name,
             email: formData.email,
-            phone: formData.phone,
-            address: `${formData.address}, ${formData.city}`,
+            phone: fullPhone,
+            address: fullShippingAddress,
             items: cartItems,
             total: grandTotal,
             refCode: refCode || appliedCoupon?.code,
             couponCode: appliedCoupon?.code,
+            taxId: !formData.sameAsShipping ? formData.billingTaxId : null,
+            companyName: !formData.sameAsShipping ? formData.billingCompanyName : null,
           }),
         });
 
         const data = await res.json();
 
         if (data.success && data.initPoint) {
-          // If Mercado Pago preference initialized successfully
           if (data.isMock) {
-            // Simulated payment redirect for testing mode
             clearCart();
             router.push(`/${locale}/checkout/success?status=approved&mock=true`);
           } else {
-            // Redirect to Mercado Pago Official Checkout / Wallet
             window.location.href = data.initPoint;
           }
         } else {
@@ -95,7 +155,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
         setIsProcessing(false);
       }
     } else {
-      // Culqi Gateway Option
+      // Culqi Option
       try {
         const res = await fetch('/api/checkout', {
           method: 'POST',
@@ -104,8 +164,8 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
             token: 'tok_test_mock_culqi',
             email: formData.email,
             name: formData.name,
-            phone: formData.phone,
-            address: `${formData.address}, ${formData.city}`,
+            phone: fullPhone,
+            address: fullShippingAddress,
             total: grandTotal,
             items: cartItems,
             refCode: refCode || appliedCoupon?.code,
@@ -129,6 +189,9 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
     }
   };
 
+  const availableRegions = REGIONS_BY_COUNTRY[formData.country] || [];
+  const availableBillingRegions = REGIONS_BY_COUNTRY[formData.billingCountry] || [];
+
   return (
     <div className="min-h-screen bg-black text-white font-sans selection:bg-[#00e8ff] selection:text-black relative font-opensauce">
       
@@ -138,13 +201,13 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
       {/* Hero Header */}
       <section className="py-10 px-4 sm:px-8 border-b border-zinc-900 bg-zinc-950/90 text-center space-y-2">
         <span className="bg-zinc-900 border border-zinc-800 text-[#00e8ff] text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full">
-          COMPRA SEGURA EN GOSU®
+          COMPRA SEGURA INTERNACIONAL EN GOSU®
         </span>
         <h1 className="text-2xl sm:text-4xl font-black uppercase font-sigher tracking-wider text-white glow-cyan">
           {isEs ? 'FINALIZAR PEDIDO (CHECKOUT)' : 'SECURE CHECKOUT'}
         </h1>
         <p className="text-xs text-zinc-400 font-inter">
-          {isEs ? 'Ingresa tus datos de envío y elige tu pasarela preferida' : 'Enter shipping info and select payment gateway'}
+          {isEs ? 'Soporte logístico internacional y facturación B2B' : 'International shipping & B2B tax billing support'}
         </p>
       </section>
 
@@ -152,33 +215,32 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
       <main className="max-w-7xl mx-auto px-4 sm:px-8 py-12">
         <form onSubmit={handleProcessPayment} className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
-          {/* Left Side: Shipping & Gateway Forms (7 cols) */}
+          {/* Left Side: Shipping & Billing Forms (7 cols) */}
           <div className="lg:col-span-7 space-y-8">
             
-            {/* CARD 1: INFORMACIÓN DE CONTACTO & ENVÍO */}
+            {/* CARD 1: CONTACTO Y DIRECCIÓN ESTRUCTURADA DE ENVÍO */}
             <div className="rounded-3xl border border-zinc-850 bg-zinc-950/80 p-6 sm:p-8 space-y-6 backdrop-blur-md shadow-2xl">
               <h2 className="text-base font-extrabold uppercase tracking-wider text-white border-b border-zinc-900 pb-4 flex items-center gap-2">
-                <span>📍 1. Datos de Contacto y Envío</span>
+                <span>📍 1. Datos de Contacto y Envío Internacional</span>
               </h2>
 
               <div className="space-y-4 text-xs">
                 
-                {/* Full Name */}
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-zinc-400">Nombres y Apellidos *</label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    value={formData.name}
-                    onChange={handleFormChange}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
-                    placeholder="Juan Pérez"
-                  />
-                </div>
-
-                {/* Email & Phone */}
+                {/* Full Name & Email */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400">Nombres y Apellidos *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      value={formData.name}
+                      onChange={handleFormChange}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                      placeholder="Juan Pérez"
+                    />
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-zinc-400">Correo Electrónico *</label>
                     <input
@@ -191,9 +253,25 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                       placeholder="cliente@gmail.com"
                     />
                   </div>
+                </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-zinc-400">Teléfono / WhatsApp *</label>
+                {/* Phone Input with Country Code Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400">Teléfono / WhatsApp *</label>
+                  <div className="flex gap-2">
+                    <select
+                      name="countryCode"
+                      value={formData.countryCode}
+                      onChange={handleFormChange}
+                      className="bg-black border border-zinc-800 rounded-xl px-3 py-3 text-xs text-white focus:outline-none focus:border-[#00e8ff] font-mono shrink-0"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.code} ({c.country})
+                        </option>
+                      ))}
+                    </select>
+
                     <input
                       type="tel"
                       name="phone"
@@ -206,65 +284,244 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                   </div>
                 </div>
 
-                {/* Address & City */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2 space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-zinc-400">Dirección de Entrega *</label>
-                    <input
-                      type="text"
-                      name="address"
-                      required
-                      value={formData.address}
+                {/* Country & State/Region Selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-900 pt-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400">País de Envío *</label>
+                    <select
+                      name="country"
+                      value={formData.country}
                       onChange={handleFormChange}
                       className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
-                      placeholder="Av. Larco 1234, Dpto 302"
+                    >
+                      <option value="PE">🇵🇪 Perú</option>
+                      <option value="MX">🇲🇽 México</option>
+                      <option value="CL">🇨🇱 Chile</option>
+                      <option value="CR">🇨🇷 Costa Rica</option>
+                      <option value="CO">🇨🇴 Colombia</option>
+                      <option value="US">🇺🇸 Estados Unidos</option>
+                      <option value="ES">🇪🇸 España</option>
+                      <option value="AR">🇦🇷 Argentina</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400">Estado / Región / Provincia *</label>
+                    {availableRegions.length > 0 ? (
+                      <select
+                        name="state"
+                        value={formData.state}
+                        onChange={handleFormChange}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                      >
+                        {availableRegions.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        name="state"
+                        required
+                        value={formData.state}
+                        onChange={handleFormChange}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                        placeholder="Nombre de Región / Estado"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* City/District & Zip Code */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400">Ciudad / Distrito *</label>
+                    <input
+                      type="text"
+                      name="cityDistrict"
+                      required
+                      value={formData.cityDistrict}
+                      onChange={handleFormChange}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                      placeholder="Ej: Miraflores / Guadalajara"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase text-zinc-400">Ciudad / Dpto *</label>
-                    <select
-                      name="city"
-                      value={formData.city}
+                    <label className="text-[10px] font-bold uppercase text-zinc-400">Código Postal (Zip Code) *</label>
+                    <input
+                      type="text"
+                      name="zipCode"
+                      required
+                      value={formData.zipCode}
                       onChange={handleFormChange}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
-                    >
-                      <option value="Lima">Lima Metropolitana</option>
-                      <option value="Arequipa">Arequipa</option>
-                      <option value="Cusco">Cusco</option>
-                      <option value="Trujillo">Trujillo</option>
-                      <option value="Chiclayo">Chiclayo</option>
-                      <option value="Piura">Piura</option>
-                      <option value="Provincias">Otra Provincia (Shalom / Olva)</option>
-                    </select>
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff] font-mono"
+                      placeholder="15074"
+                    />
                   </div>
                 </div>
 
-                {/* Reference Notes */}
+                {/* Street Address & Reference */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-zinc-400">Referencia de Dirección (Opcional)</label>
-                  <textarea
-                    name="notes"
-                    rows={2}
-                    value={formData.notes}
+                  <label className="text-[10px] font-bold uppercase text-zinc-400">Dirección de Calle y Número *</label>
+                  <input
+                    type="text"
+                    name="streetAddress"
+                    required
+                    value={formData.streetAddress}
                     onChange={handleFormChange}
-                    className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-[#00e8ff]"
-                    placeholder="Instrucciones para la empresa de courier..."
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                    placeholder="Av. Benavides 1234, Dpto 402"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-zinc-400">Referencia o Dpto (Opcional)</label>
+                  <input
+                    type="text"
+                    name="reference"
+                    value={formData.reference}
+                    onChange={handleFormChange}
+                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                    placeholder="Al frente del Parque Reducto, intermitente timbre 4"
                   />
                 </div>
 
               </div>
             </div>
 
-            {/* CARD 2: SELECCIÓN DE PASARELA DE PAGO */}
+            {/* CARD 2: DATOS DE FACTURACIÓN (B2B & FISCAL) */}
+            <div className="rounded-3xl border border-zinc-850 bg-zinc-950/80 p-6 sm:p-8 space-y-6 backdrop-blur-md shadow-2xl">
+              <div className="border-b border-zinc-900 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h2 className="text-base font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
+                  <span>📑 2. Datos de Facturación B2B & Fiscal</span>
+                </h2>
+
+                {/* Same as shipping checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-zinc-300 font-bold">
+                  <input
+                    type="checkbox"
+                    name="sameAsShipping"
+                    checked={formData.sameAsShipping}
+                    onChange={handleFormChange}
+                    className="h-4 w-4 rounded accent-[#00e8ff]"
+                  />
+                  <span>Misma dirección que la de envío</span>
+                </label>
+              </div>
+
+              {/* Conditional Billing Address Form */}
+              {!formData.sameAsShipping && (
+                <div className="space-y-4 text-xs pt-2 animate-fadeIn">
+                  
+                  {/* Tax ID & Company Name */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-[#00e8ff]">
+                        RUC / RFC / RUT / Documento Fiscal *
+                      </label>
+                      <input
+                        type="text"
+                        name="billingTaxId"
+                        required={!formData.sameAsShipping}
+                        value={formData.billingTaxId}
+                        onChange={handleFormChange}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff] font-mono"
+                        placeholder="Ej: 20601234567"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-[#00e8ff]">
+                        Razón Social / Nombre Comercial *
+                      </label>
+                      <input
+                        type="text"
+                        name="billingCompanyName"
+                        required={!formData.sameAsShipping}
+                        value={formData.billingCompanyName}
+                        onChange={handleFormChange}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                        placeholder="Ej: Tienda TCG Game Store S.A.C."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Billing Country & Region */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-zinc-400">País de Facturación *</label>
+                      <select
+                        name="billingCountry"
+                        value={formData.billingCountry}
+                        onChange={handleFormChange}
+                        className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                      >
+                        <option value="PE">🇵🇪 Perú</option>
+                        <option value="MX">🇲🇽 México</option>
+                        <option value="CL">🇨🇱 Chile</option>
+                        <option value="CR">🇨🇷 Costa Rica</option>
+                        <option value="CO">🇨🇴 Colombia</option>
+                        <option value="US">🇺🇸 Estados Unidos</option>
+                        <option value="ES">🇪🇸 España</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-zinc-400">Estado / Región *</label>
+                      {availableBillingRegions.length > 0 ? (
+                        <select
+                          name="billingState"
+                          value={formData.billingState}
+                          onChange={handleFormChange}
+                          className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                        >
+                          {availableBillingRegions.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          name="billingState"
+                          required={!formData.sameAsShipping}
+                          value={formData.billingState}
+                          onChange={handleFormChange}
+                          className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Billing Street */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase text-zinc-400">Dirección Fiscal Completa *</label>
+                    <input
+                      type="text"
+                      name="billingStreetAddress"
+                      required={!formData.sameAsShipping}
+                      value={formData.billingStreetAddress}
+                      onChange={handleFormChange}
+                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00e8ff]"
+                      placeholder="Dirección fiscal registrada ante SUNAT / SAT"
+                    />
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            {/* CARD 3: PASARELA DE PAGO */}
             <div className="rounded-3xl border border-zinc-850 bg-zinc-950/80 p-6 sm:p-8 space-y-6 backdrop-blur-md shadow-2xl">
               <h2 className="text-base font-extrabold uppercase tracking-wider text-white border-b border-zinc-900 pb-4 flex items-center gap-2">
-                <span>💳 2. Método de Pago Seguro</span>
+                <span>💳 3. Método de Pago Seguro</span>
               </h2>
 
               <div className="space-y-3">
-                
-                {/* Mercado Pago Option (Recommended) */}
                 <label
                   onClick={() => setPaymentGateway('mercadopago')}
                   className={`p-5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -283,46 +540,17 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                     />
                     <div>
                       <span className="text-xs font-black uppercase text-white flex items-center gap-2">
-                        <span>💙 Mercado Pago Perú</span>
+                        <span>💙 Mercado Pago Perú & Internacional</span>
                         <span className="bg-[#00e8ff] text-black text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full">
                           Recomendado
                         </span>
                       </span>
                       <p className="text-[10px] text-zinc-400 font-inter mt-0.5">
-                        Paga en Soles con Yape, Plin, Tarjeta de Crédito/Débito o PagoEfectivo
+                        Paga en Soles/USD con Yape, Plin, Tarjetas de Crédito/Débito o PagoEfectivo
                       </p>
                     </div>
                   </div>
                 </label>
-
-                {/* Culqi Option */}
-                <label
-                  onClick={() => setPaymentGateway('culqi')}
-                  className={`p-5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
-                    paymentGateway === 'culqi'
-                      ? 'bg-zinc-900 border-[#00e8ff]'
-                      : 'bg-black border-zinc-850 hover:border-zinc-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="radio"
-                      name="paymentGateway"
-                      checked={paymentGateway === 'culqi'}
-                      readOnly
-                      className="accent-[#00e8ff]"
-                    />
-                    <div>
-                      <span className="text-xs font-black uppercase text-white">
-                        ⚡ Culqi (Tarjetas Directas & Yape)
-                      </span>
-                      <p className="text-[10px] text-zinc-400 font-inter mt-0.5">
-                        Procesa tu tarjeta Visa, Mastercard o Yape nativo
-                      </p>
-                    </div>
-                  </div>
-                </label>
-
               </div>
             </div>
 
@@ -330,7 +558,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
 
           {/* Right Side: Order Summary Card (5 cols) */}
           <div className="lg:col-span-5">
-            <div className="rounded-3xl border border-zinc-850 bg-zinc-950/90 p-6 sm:p-8 space-y-6 backdrop-blur-xl shadow-2xl sticky top-28">
+            <div className="rounded-3xl border border-zinc-850 bg-zinc-950/90 p-6 sm:p-8 space-y-6 backdrop-blur-xl shadow-2xl sticky top-28 font-opensauce">
               
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-white border-b border-zinc-900 pb-3 flex items-center justify-between">
                 <span>🛍️ Resumen del Pedido</span>
@@ -382,7 +610,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                 )}
 
                 <div className="flex justify-between text-zinc-400">
-                  <span>Envío a {formData.city}</span>
+                  <span>Envío ({formData.country === 'PE' ? 'Nacional' : 'Internacional'})</span>
                   <span className="font-mono text-white">
                     {cartItems.length > 0 ? `S/. ${shippingCost.toFixed(2)}` : 'S/. 0.00'}
                   </span>
@@ -403,7 +631,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                 </div>
               )}
 
-              {/* Primary Submit Payment CTA */}
+              {/* Primary Submit Payment CTA (Mercado Pago Button) */}
               <button
                 type="submit"
                 disabled={isProcessing || cartItems.length === 0}
@@ -412,10 +640,10 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                 {isProcessing ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
-                    <span>Conectando Pasarela...</span>
+                    <span>Conectando Mercado Pago...</span>
                   </>
                 ) : (
-                  <span>CONFIRMAR Y PAGAR S/. {grandTotal.toFixed(2)} 🔒</span>
+                  <span>PAGAR CON MERCADO PAGO 🔒</span>
                 )}
               </button>
 
