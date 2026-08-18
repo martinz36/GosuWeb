@@ -13,13 +13,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Fetch Mercado Pago credentials dynamically from StoreSettings in Neon DB
-    let settings = await prisma.storeSettings.findUnique({
-      where: { id: 'default' },
-    });
-
     const defaultAccessToken = 'APP_USR-3957004131601630-081800-91959106186021086c02a3fd5d6055bb-1675360619';
     const defaultPublicKey = 'APP_USR-08d9d9e0-117e-42c9-9225-0658cd99a424';
+
+    // 1. Fetch Mercado Pago credentials dynamically from StoreSettings in Neon DB with safe fallback
+    let settings = null;
+    try {
+      settings = await prisma.storeSettings.findUnique({
+        where: { id: 'default' },
+      });
+    } catch (dbErr) {
+      console.warn('Could not query StoreSettings table in DB, using default fallback credentials:', dbErr);
+    }
 
     const accessToken =
       settings?.mpAccessProdToken ||
