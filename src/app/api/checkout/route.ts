@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
   try {
@@ -157,6 +158,25 @@ export async function POST(request: Request) {
       } catch (affErr) {
         console.error('Error processing affiliate commission:', affErr);
       }
+    }
+
+    // --- 6. Dispatch Order Confirmation Email via Resend ---
+    try {
+      await sendOrderConfirmationEmail({
+        orderId: `#ORD-${newOrden.numeroOrden}`,
+        customerName: name,
+        customerEmail: email,
+        shippingAddress: address,
+        total: Number(total),
+        items: (items || []).map((i: any) => ({
+          name: i.name || 'Producto GOSU',
+          variantTitle: i.variantTitle,
+          quantity: i.quantity,
+          price: Number(i.price),
+        })),
+      });
+    } catch (emailErr) {
+      console.error('Error sending confirmation email in checkout route:', emailErr);
     }
 
     return NextResponse.json({
