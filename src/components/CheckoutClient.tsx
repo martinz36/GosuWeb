@@ -60,6 +60,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
   // Dynamic Shipping & Settings fetched from Neon DB
   const [shippingZones, setShippingZones] = useState<ShippingZoneItem[]>([]);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(200.0);
+  const [matchedZone, setMatchedZone] = useState<ShippingZoneItem | null>(null);
 
   // Customer Contact & Shipping Form State
   const [formData, setFormData] = useState({
@@ -92,7 +93,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Fetch StoreSettings and ShippingZones from DB
+  // Initial Fetch StoreSettings and ShippingZones from DB
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -119,18 +120,25 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
     fetchData();
   }, []);
 
-  // Calculate Dynamic Shipping Cost based on Country, Region, and Free Shipping Threshold
+  // Effect listening to changes in Country and State dropdowns to match ShippingZone from DB
+  useEffect(() => {
+    if (shippingZones.length > 0) {
+      const zone = shippingZones.find(
+        (z) =>
+          z.countryCode === formData.country &&
+          (z.region.toLowerCase() === formData.state.toLowerCase() || z.region.includes('Todas'))
+      ) || shippingZones.find((z) => z.countryCode === formData.country);
+
+      setMatchedZone(zone || null);
+    }
+  }, [formData.country, formData.state, shippingZones]);
+
+  // Dynamic Shipping Calculations
   const isFreeShippingEligible = finalTotal >= freeShippingThreshold;
-
-  const matchedZone = shippingZones.find(
-    (z) =>
-      z.countryCode === formData.country &&
-      (z.region.toLowerCase() === formData.state.toLowerCase() || z.region.includes('Todas'))
-  ) || shippingZones.find((z) => z.countryCode === formData.country);
-
   const baseShippingRate = matchedZone ? matchedZone.rate : (formData.country === 'PE' ? 12.0 : 45.0);
   const shippingCost = isFreeShippingEligible ? 0.0 : baseShippingRate;
   const grandTotal = finalTotal + (cartItems.length > 0 ? shippingCost : 0);
+  const estimatedDaysText = matchedZone?.estimatedDays || (formData.country === 'PE' ? '24 a 48 horas hábiles' : '3 a 5 días hábiles');
 
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -650,14 +658,27 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                   </div>
                 )}
 
-                <div className="flex justify-between text-zinc-400 items-center">
-                  <span>Envío ({formData.state})</span>
-                  <span className="font-mono font-bold">
-                    {isFreeShippingEligible ? (
-                      <span className="text-emerald-400 font-black">S/. 0.00 (¡GRATIS! 🎁)</span>
-                    ) : (
-                      <span className="text-white">S/. {shippingCost.toFixed(2)}</span>
-                    )}
+                {/* Shipping Cost Display */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-zinc-400 items-center">
+                    <span>Envío ({formData.state})</span>
+                    <span className="font-mono font-bold">
+                      {isFreeShippingEligible ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-zinc-500 line-through text-[11px]">
+                            S/. {baseShippingRate.toFixed(2)}
+                          </span>
+                          <span className="text-emerald-400 font-black">GRATIS</span>
+                        </div>
+                      ) : (
+                        <span className="text-white">S/. {baseShippingRate.toFixed(2)}</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Small Gray Estimated Delivery Time */}
+                  <span className="text-[10px] text-zinc-500 block font-inter">
+                    🚚 Entrega estimada: {estimatedDaysText}
                   </span>
                 </div>
 
@@ -668,8 +689,9 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                   </p>
                 )}
 
+                {/* Recalculated Grand Total */}
                 <div className="flex justify-between text-lg font-black text-white pt-3 border-t border-zinc-900">
-                  <span className="font-sigher uppercase tracking-wider">TOTAL</span>
+                  <span className="font-sigher uppercase tracking-wider">TOTAL A PAGAR</span>
                   <span className="font-sigher text-[#00e8ff] glow-cyan">
                     S/. {grandTotal.toFixed(2)}
                   </span>
@@ -683,7 +705,7 @@ export default function CheckoutClient({ locale, dict }: { locale: 'es' | 'en'; 
                 </div>
               )}
 
-              {/* Primary Submit Payment CTA (Mercado Pago Button) */}
+              {/* Primary Submit Payment CTA */}
               <button
                 type="submit"
                 disabled={isProcessing || cartItems.length === 0}
