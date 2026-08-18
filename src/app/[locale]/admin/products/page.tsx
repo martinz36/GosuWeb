@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import AdminSidebar from '@/components/AdminSidebar';
 
 interface Product {
@@ -26,24 +27,7 @@ export default function AdminProductsPage({ params }: { params: Promise<{ locale
   const [productsList, setProductsList] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Form states for creating a new product
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newProduct, setNewProduct] = useState({
-    nameEs: '',
-    nameEn: '',
-    descriptionEs: '',
-    descriptionEn: '',
-    price: '',
-    category: 'tcg-sleeves',
-    image: '/assets/images/image-113ac3f9.png',
-    stock: '',
-    colorsEs: '',
-    colorsEn: '',
-    detailsEs: '',
-    detailsEn: '',
-  });
-
-  // Edit states for price/stock
+  // Edit states for price/stock inline quick edit
   const [editingProduct, setEditingProduct] = useState<Record<number, { price: string; stock: string }>>({});
 
   useEffect(() => {
@@ -124,53 +108,6 @@ export default function AdminProductsPage({ params }: { params: Promise<{ locale
     }
   };
 
-  const handleCreateProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newProduct.nameEs || !newProduct.nameEn || !newProduct.price || !newProduct.stock) {
-      alert('Por favor completa los campos requeridos (Nombre, Precio y Stock).');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/admin/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newProduct,
-          price: parseFloat(newProduct.price),
-          stock: parseInt(newProduct.stock),
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        alert('¡Nuevo producto cargado en catálogo con éxito!');
-        setShowAddForm(false);
-        setNewProduct({
-          nameEs: '',
-          nameEn: '',
-          descriptionEs: '',
-          descriptionEn: '',
-          price: '',
-          category: 'tcg-sleeves',
-          image: '/assets/images/image-113ac3f9.png',
-          stock: '',
-          colorsEs: '',
-          colorsEn: '',
-          detailsEs: '',
-          detailsEn: '',
-        });
-        fetchData();
-      } else {
-        alert('Error: ' + data.error);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error al guardar producto.');
-    }
-  };
-
   const handleEditChange = (productId: number, field: 'price' | 'stock', value: string) => {
     setEditingProduct((prev) => ({
       ...prev,
@@ -205,150 +142,17 @@ export default function AdminProductsPage({ params }: { params: Promise<{ locale
               </p>
             </div>
             
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center gap-2 rounded-full bg-white text-black font-extrabold uppercase text-xs px-5 py-2.5 hover:bg-[#00e8ff] hover:shadow-[0_0_15px_rgba(0,232,255,0.4)] transition-all font-opensauce"
+            {/* Cargar Producto Button -> Navigates to full page form /admin/products/new */}
+            <Link
+              href={`/${activeLocale}/admin/products/new`}
+              className="flex items-center gap-2 rounded-full bg-[#00e8ff] text-black font-extrabold uppercase text-xs px-5 py-2.5 hover:bg-white hover:shadow-[0_0_15px_rgba(0,232,255,0.4)] transition-all font-opensauce shadow-[0_0_12px_rgba(0,232,255,0.25)]"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              {showAddForm ? 'Ocultar Formulario' : 'Cargar Producto'}
-            </button>
+              <span>Cargar Producto</span>
+            </Link>
           </div>
-
-          {/* Create Product Form */}
-          {showAddForm && (
-            <form onSubmit={handleCreateProduct} className="p-6 rounded-2xl border border-zinc-900 bg-zinc-950 space-y-4 animate-in slide-in-from-top-4 duration-200">
-              <h3 className="text-md font-bold text-white uppercase tracking-wider border-b border-zinc-900 pb-2 font-opensauce">
-                Detalles del nuevo producto
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Nombre (Español) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newProduct.nameEs}
-                    onChange={(e) => setNewProduct({ ...newProduct, nameEs: e.target.value })}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                    placeholder="Ej: Fundas TCG Matte - Azul Cobalto"
-                  />
-                </div>
-                
-                <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Nombre (Inglés) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newProduct.nameEn}
-                    onChange={(e) => setNewProduct({ ...newProduct, nameEn: e.target.value })}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                    placeholder="Ej: TCG Matte Sleeves - Cobalt Blue"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Descripción (Español)</label>
-                  <textarea
-                    rows={2}
-                    value={newProduct.descriptionEs}
-                    onChange={(e) => setNewProduct({ ...newProduct, descriptionEs: e.target.value })}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                    placeholder="Descripción breve..."
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Descripción (Inglés)</label>
-                  <textarea
-                    rows={2}
-                    value={newProduct.descriptionEn}
-                    onChange={(e) => setNewProduct({ ...newProduct, descriptionEn: e.target.value })}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                    placeholder="Short description..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-3 md:col-span-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 uppercase font-bold">Precio (S/.) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      required
-                      value={newProduct.price}
-                      onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                      placeholder="25.00"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 uppercase font-bold">Stock (Unidades) *</label>
-                    <input
-                      type="number"
-                      required
-                      value={newProduct.stock}
-                      onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                      placeholder="100"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-500 uppercase font-bold">Categoría *</label>
-                    <select
-                      value={newProduct.category}
-                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                      className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                    >
-                      <option value="board-sleeves">Board Game Sleeves</option>
-                      <option value="tcg-sleeves">TCG Matte Sleeves</option>
-                      <option value="inner-over">Inner / Over Sleeves</option>
-                      <option value="binders">Premium Binders</option>
-                      <option value="deckboxes">Deck Boxes</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Ruta de Imagen GOSU</label>
-                  <select
-                    value={newProduct.image}
-                    onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                  >
-                    <option value="/assets/images/image-113ac3f9.png">Deckbox Premium (image-113ac3f9.png)</option>
-                    <option value="/assets/images/image-3a743382.jpg">Binder Premium (image-3a743382.jpg)</option>
-                    <option value="/assets/images/image-52e660c6.jpg">Sleeves TCG Estándar (image-52e660c6.jpg)</option>
-                    <option value="/assets/images/image-d02d8bfe.jpg">Sleeves TCG Japonés (image-d02d8bfe.jpg)</option>
-                    <option value="/assets/images/image-cbe9164e.png">Inner Sleeves (image-cbe9164e.png)</option>
-                    <option value="/assets/images/image-f5e8b751.png">Over Sleeves (image-f5e8b751.png)</option>
-                    <option value="/assets/images/image-4f57375b.jpg">Boardgame Sleeves (image-4f57375b.jpg)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Colores Disponibles</label>
-                  <input
-                    type="text"
-                    value={newProduct.colorsEs}
-                    onChange={(e) => setNewProduct({ ...newProduct, colorsEs: e.target.value, colorsEn: e.target.value })}
-                    className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-[#00e8ff]"
-                    placeholder="Negro, Azul, Rojo"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#00e8ff] hover:bg-white text-black font-extrabold uppercase py-3 px-4 text-xs tracking-wider transition-all font-opensauce"
-              >
-                Guardar Producto en Base de Datos
-              </button>
-            </form>
-          )}
 
           {/* Products Table */}
           {loading ? (
@@ -386,7 +190,12 @@ export default function AdminProductsPage({ params }: { params: Promise<{ locale
                         </td>
 
                         <td className="px-6 py-4 max-w-xs">
-                          <div className="font-bold text-white text-xs uppercase line-clamp-1">{product.nameEs}</div>
+                          <Link
+                            href={`/${activeLocale}/admin/products/new`}
+                            className="font-bold text-white text-xs uppercase line-clamp-1 hover:text-[#00e8ff] transition-colors"
+                          >
+                            {product.nameEs}
+                          </Link>
                           <div className="text-[10px] text-zinc-500 uppercase tracking-wide mt-0.5">{product.nameEn}</div>
                         </td>
 
@@ -420,11 +229,17 @@ export default function AdminProductsPage({ params }: { params: Promise<{ locale
 
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <div className="flex items-center justify-center gap-2">
+                            <Link
+                              href={`/${activeLocale}/admin/products/new`}
+                              className="rounded bg-zinc-900 border border-zinc-800 hover:border-[#00e8ff] text-[#00e8ff] text-[10px] font-bold uppercase px-3 py-1.5 transition-colors"
+                            >
+                              Editar
+                            </Link>
                             <button
                               onClick={() => handleSaveEdit(product.id)}
                               className="rounded bg-zinc-900 border border-zinc-800 hover:border-white text-white text-[10px] font-bold uppercase px-3 py-1.5 transition-colors"
                             >
-                              Guardar
+                              Rápido
                             </button>
                             <button
                               onClick={() => handleDeleteProduct(product.id)}
