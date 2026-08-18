@@ -15,7 +15,7 @@ export async function GET() {
         data: {
           id: 'default',
           mercadoPagoActive: true,
-          mercadoPagoMode: 'production',
+          mercadoPagoMode: 'sandbox',
           mpPublicSandboxKey: USER_MP_PUBLIC_KEY,
           mpAccessSandboxToken: USER_MP_ACCESS_TOKEN,
           mpPublicProdKey: USER_MP_PUBLIC_KEY,
@@ -30,25 +30,6 @@ export async function GET() {
           freeShippingThreshold: 200.0,
         },
       });
-    } else {
-      // Upsert/update with user's newly provided Mercado Pago credentials if they were still mock
-      if (
-        !settings.mpAccessProdToken ||
-        settings.mpAccessProdToken.startsWith('APP_USR-87654321-PROD') ||
-        settings.mpAccessSandboxToken?.startsWith('TEST-87654321')
-      ) {
-        settings = await prisma.storeSettings.update({
-          where: { id: 'default' },
-          data: {
-            mercadoPagoActive: true,
-            mercadoPagoMode: 'production',
-            mpPublicSandboxKey: USER_MP_PUBLIC_KEY,
-            mpAccessSandboxToken: USER_MP_ACCESS_TOKEN,
-            mpPublicProdKey: USER_MP_PUBLIC_KEY,
-            mpAccessProdToken: USER_MP_ACCESS_TOKEN,
-          },
-        });
-      }
     }
 
     return NextResponse.json({
@@ -75,7 +56,7 @@ export async function PUT(request: Request) {
       where: { id: 'default' },
       update: {
         mercadoPagoActive: Boolean(body.mercadoPagoActive),
-        mercadoPagoMode: body.mercadoPagoMode || 'production',
+        mercadoPagoMode: body.mercadoPagoMode || 'sandbox',
         mpPublicSandboxKey: body.mpPublicSandboxKey || USER_MP_PUBLIC_KEY,
         mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
         mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
@@ -96,7 +77,7 @@ export async function PUT(request: Request) {
       create: {
         id: 'default',
         mercadoPagoActive: Boolean(body.mercadoPagoActive),
-        mercadoPagoMode: body.mercadoPagoMode || 'production',
+        mercadoPagoMode: body.mercadoPagoMode || 'sandbox',
         mpPublicSandboxKey: body.mpPublicSandboxKey || USER_MP_PUBLIC_KEY,
         mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
         mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
@@ -104,8 +85,8 @@ export async function PUT(request: Request) {
 
         stripeActive: Boolean(body.stripeActive),
         stripeMode: body.stripeMode || 'sandbox',
-        stripePublishableKey: body.stripePublishableKey,
-        stripeSecretKey: body.stripeSecretKey,
+        stripePublishableKey: body.stripePublishableKey || USER_MP_PUBLIC_KEY,
+        stripeSecretKey: body.stripeSecretKey || USER_MP_ACCESS_TOKEN,
 
         culqiActive: Boolean(body.culqiActive),
         culqiPublicKey: body.culqiPublicKey,

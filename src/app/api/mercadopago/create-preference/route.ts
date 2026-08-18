@@ -26,17 +26,13 @@ export async function POST(request: Request) {
       console.warn('Could not query StoreSettings table in DB, using default fallback credentials:', dbErr);
     }
 
-    const isSandboxMode = settings?.mercadoPagoMode === 'sandbox';
-
     const accessToken =
-      (isSandboxMode ? settings?.mpAccessSandboxToken : settings?.mpAccessProdToken) ||
       settings?.mpAccessProdToken ||
       settings?.mpAccessSandboxToken ||
       process.env.MP_ACCESS_TOKEN ||
       defaultAccessToken;
 
     const publicKey =
-      (isSandboxMode ? settings?.mpPublicSandboxKey : settings?.mpPublicProdKey) ||
       settings?.mpPublicProdKey ||
       settings?.mpPublicSandboxKey ||
       process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ||
@@ -116,10 +112,8 @@ export async function POST(request: Request) {
       });
     }
 
-    // Use sandbox_init_point when in Sandbox mode or if test cards are being used
-    const initPoint = isSandboxMode
-      ? preferenceData.sandbox_init_point || preferenceData.init_point
-      : preferenceData.init_point || preferenceData.sandbox_init_point;
+    // Always use sandbox_init_point when present for test credentials to avoid "una de las partes es de prueba" error
+    const initPoint = preferenceData.sandbox_init_point || preferenceData.init_point;
 
     return NextResponse.json({
       success: true,
