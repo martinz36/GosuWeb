@@ -15,7 +15,7 @@ export async function GET() {
         data: {
           id: 'default',
           mercadoPagoActive: true,
-          mercadoPagoMode: 'sandbox',
+          mercadoPagoMode: 'production',
           mpPublicSandboxKey: USER_MP_PUBLIC_KEY,
           mpAccessSandboxToken: USER_MP_ACCESS_TOKEN,
           mpPublicProdKey: USER_MP_PUBLIC_KEY,
@@ -56,7 +56,7 @@ export async function PUT(request: Request) {
       where: { id: 'default' },
       update: {
         mercadoPagoActive: Boolean(body.mercadoPagoActive),
-        mercadoPagoMode: body.mercadoPagoMode || 'sandbox',
+        mercadoPagoMode: body.mercadoPagoMode || 'production',
         mpPublicSandboxKey: body.mpPublicSandboxKey || USER_MP_PUBLIC_KEY,
         mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
         mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
@@ -77,7 +77,7 @@ export async function PUT(request: Request) {
       create: {
         id: 'default',
         mercadoPagoActive: Boolean(body.mercadoPagoActive),
-        mercadoPagoMode: body.mercadoPagoMode || 'sandbox',
+        mercadoPagoMode: body.mercadoPagoMode || 'production',
         mpPublicSandboxKey: body.mpPublicSandboxKey || USER_MP_PUBLIC_KEY,
         mpAccessSandboxToken: body.mpAccessSandboxToken || USER_MP_ACCESS_TOKEN,
         mpPublicProdKey: body.mpPublicProdKey || USER_MP_PUBLIC_KEY,
@@ -85,8 +85,8 @@ export async function PUT(request: Request) {
 
         stripeActive: Boolean(body.stripeActive),
         stripeMode: body.stripeMode || 'sandbox',
-        stripePublishableKey: body.stripePublishableKey || USER_MP_PUBLIC_KEY,
-        stripeSecretKey: body.stripeSecretKey || USER_MP_ACCESS_TOKEN,
+        stripePublishableKey: body.stripePublishableKey,
+        stripeSecretKey: body.stripeSecretKey,
 
         culqiActive: Boolean(body.culqiActive),
         culqiPublicKey: body.culqiPublicKey,

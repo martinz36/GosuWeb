@@ -116,9 +116,9 @@ export async function POST(request: Request) {
       });
     }
 
-    // According to official Mercado Pago docs:
-    // If the token starts with TEST-, use sandbox_init_point.
-    // If the token starts with APP_USR-, use init_point (Production link).
+    // According to official Mercado Pago credentials documentation:
+    // Tokens starting with TEST- use sandbox_init_point.
+    // Tokens starting with APP_USR- (Production credentials) use init_point.
     const isTestToken = accessToken.trim().startsWith('TEST-');
     const initPoint = isTestToken
       ? (preferenceData.sandbox_init_point || preferenceData.init_point)
