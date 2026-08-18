@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -10,6 +10,21 @@ interface ProductFormClientProps {
   locale: string;
   initialData?: any;
   isEdit?: boolean;
+}
+
+interface VariantOption {
+  id: string;
+  name: string; // e.g. "Color", "Tamaño", "Material"
+  values: string[]; // e.g. ["Negro Matte", "Azul Cobalto", "Rojo Rubí"]
+}
+
+interface GeneratedVariant {
+  id: string;
+  title: string; // e.g. "Negro Matte / Standard (66x91mm)"
+  price: string;
+  sku: string;
+  stock: string;
+  image?: string;
 }
 
 export default function ProductFormClient({
@@ -31,7 +46,7 @@ export default function ProductFormClient({
     category: initialData?.category || 'tcg-sleeves',
     productType: initialData?.productType || 'Fundas de Protección',
     tags: initialData?.tags || ['100 micras', 'Acid & PVC Free', 'Premium TCG'],
-    price: initialData?.price ? String(initialData.price) : '',
+    price: initialData?.price ? String(initialData.price) : '25.00',
     comparePrice: initialData?.comparePrice ? String(initialData.comparePrice) : '',
     sku: initialData?.sku || 'GOSU-SLV-100-CLR',
     barcode: initialData?.barcode || '7751234567890',
@@ -58,6 +73,135 @@ export default function ProductFormClient({
   // New tag input state
   const [newTagInput, setNewTagInput] = useState('');
 
+  // ----------------------------------------------------
+  // VARIANTS MANAGEMENT STATE
+  // ----------------------------------------------------
+  const [hasVariants, setHasVariants] = useState(true);
+  const [options, setOptions] = useState<VariantOption[]>([
+    {
+      id: 'opt-1',
+      name: 'Color',
+      values: ['Negro Matte', 'Azul Cobalto', 'Rojo Rubí'],
+    },
+    {
+      id: 'opt-2',
+      name: 'Tamaño',
+      values: ['Standard (66x91mm)', 'Japanese (62x89mm)'],
+    },
+  ]);
+
+  const [newValInputs, setNewValInputs] = useState<Record<string, string>>({});
+  const [variantsList, setVariantsList] = useState<GeneratedVariant[]>([]);
+
+  // Compute Cartesian product of options to generate dynamic variants
+  useMemo(() => {
+    const activeOptions = options.filter((o) => o.name.trim() !== '' && o.values.length > 0);
+
+    if (!hasVariants || activeOptions.length === 0) {
+      setVariantsList([]);
+      return;
+    }
+
+    // Helper to cartesian product arrays
+    const cartesian = (acc: string[][], option: VariantOption): string[][] => {
+      const res: string[][] = [];
+      acc.forEach((a) => {
+        option.values.forEach((v) => {
+          res.push([...a, v]);
+        });
+      });
+      return res;
+    };
+
+    let combinations: string[][] = activeOptions[0].values.map((v) => [v]);
+
+    for (let i = 1; i < activeOptions.length; i++) {
+      combinations = cartesian(combinations, activeOptions[i]);
+    }
+
+    // Map combinations into variant objects while preserving edits
+    const baseSku = formData.sku || 'GOSU-SLV';
+    const basePrice = formData.price || '25.00';
+
+    setVariantsList((prevVariants) => {
+      const prevMap = new Map(prevVariants.map((v) => [v.title, v]));
+
+      return combinations.map((combo, idx) => {
+        const title = combo.join(' / ');
+        const existing = prevMap.get(title);
+
+        if (existing) return existing;
+
+        const skuSuffix = combo.map((c) => c.slice(0, 3).toUpperCase()).join('-');
+        return {
+          id: `var-${idx}-${Date.now()}`,
+          title,
+          price: basePrice,
+          sku: `${baseSku}-${skuSuffix}`,
+          stock: '50',
+          image: images[0] || '/assets/images/image-113ac3f9.png',
+        };
+      });
+    });
+  }, [options, hasVariants, formData.sku, formData.price, images]);
+
+  // Option Handlers
+  const handleAddOption = () => {
+    const newId = `opt-${Date.now()}`;
+    setOptions([...options, { id: newId, name: '', values: [] }]);
+  };
+
+  const handleRemoveOption = (id: string) => {
+    setOptions(options.filter((o) => o.id !== id));
+  };
+
+  const handleOptionNameChange = (id: string, name: string) => {
+    setOptions(options.map((o) => (o.id === id ? { ...o, name } : o)));
+  };
+
+  const handleAddValueToOption = (optionId: string) => {
+    const val = (newValInputs[optionId] || '').trim();
+    if (!val) return;
+
+    setOptions(
+      options.map((o) => {
+        if (o.id === optionId && !o.values.includes(val)) {
+          return { ...o, values: [...o.values, val] };
+        }
+        return o;
+      })
+    );
+
+    setNewValInputs({ ...newValInputs, [optionId]: '' });
+  };
+
+  const handleRemoveValueFromOption = (optionId: string, valueToRemove: string) => {
+    setOptions(
+      options.map((o) => {
+        if (o.id === optionId) {
+          return { ...o, values: o.values.filter((v) => v !== valueToRemove) };
+        }
+        return o;
+      })
+    );
+  };
+
+  // Variant Table Handlers
+  const handleVariantFieldChange = (
+    variantId: string,
+    field: 'price' | 'sku' | 'stock',
+    val: string
+  ) => {
+    setVariantsList(
+      variantsList.map((v) => (v.id === variantId ? { ...v, [field]: val } : v))
+    );
+  };
+
+  const handleRemoveVariantRow = (variantId: string) => {
+    setVariantsList(variantsList.filter((v) => v.id !== variantId));
+  };
+
+  // Tag Handlers
   const handleAddTag = () => {
     if (!newTagInput.trim()) return;
     if (!formData.tags.includes(newTagInput.trim())) {
@@ -85,8 +229,8 @@ export default function ProductFormClient({
     e.preventDefault();
     alert(
       isEdit
-        ? '¡Producto actualizado con éxito!'
-        : '¡Nuevo producto registrado exitosamente!'
+        ? '¡Producto y variantes actualizados con éxito!'
+        : '¡Nuevo producto con variantes registrado exitosamente!'
     );
     router.push(`/${locale}/admin/products`);
   };
@@ -142,7 +286,7 @@ export default function ProductFormClient({
           {/* Form Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            {/* Left 2 Columns: Main Details */}
+            {/* Left 2 Columns: Main Details & Variants */}
             <div className="lg:col-span-2 space-y-8">
               
               {/* CARD 1: INFORMACIÓN GENERAL */}
@@ -153,7 +297,6 @@ export default function ProductFormClient({
                   </h3>
                 </div>
 
-                {/* Title ES */}
                 <div className="space-y-1.5 font-opensauce">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Título (Español) *
@@ -168,7 +311,6 @@ export default function ProductFormClient({
                   />
                 </div>
 
-                {/* Title EN */}
                 <div className="space-y-1.5 font-opensauce">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Título (Inglés) *
@@ -190,7 +332,6 @@ export default function ProductFormClient({
                       Descripción del Producto
                     </label>
                     
-                    {/* Language Switcher Tabs */}
                     <div className="flex items-center border border-zinc-800 rounded-lg p-0.5 bg-black text-[10px] font-bold">
                       <button
                         type="button"
@@ -217,7 +358,6 @@ export default function ProductFormClient({
                     </div>
                   </div>
 
-                  {/* Rich Text Toolbar Mockup */}
                   <div className="rounded-xl border border-zinc-800 bg-black overflow-hidden">
                     <div className="flex items-center gap-1 bg-zinc-900/90 border-b border-zinc-850 px-3 py-2 text-zinc-400 text-xs font-mono">
                       <button type="button" className="p-1 hover:text-white hover:bg-zinc-800 rounded font-bold">B</button>
@@ -232,7 +372,7 @@ export default function ProductFormClient({
                     </div>
 
                     <textarea
-                      rows={5}
+                      rows={4}
                       value={descLang === 'es' ? formData.descriptionEs : formData.descriptionEn}
                       onChange={(e) =>
                         setFormData({
@@ -260,7 +400,6 @@ export default function ProductFormClient({
                   <span className="text-[10px] text-zinc-500 font-inter">Formatos: PNG, JPG, WEBP</span>
                 </div>
 
-                {/* Drag & Drop Upload Zone */}
                 <div className="border-2 border-dashed border-zinc-800 hover:border-[#00e8ff] rounded-2xl p-8 text-center bg-black/60 transition-all cursor-pointer group space-y-3">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 group-hover:text-[#00e8ff] group-hover:scale-110 transition-all">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-7 h-7">
@@ -278,7 +417,6 @@ export default function ProductFormClient({
                   </div>
                 </div>
 
-                {/* Uploaded Images Grid */}
                 {images.length > 0 && (
                   <div className="space-y-3">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-opensauce">
@@ -299,7 +437,6 @@ export default function ProductFormClient({
                           >
                             <Image src={img} alt={`Media ${idx}`} fill className="object-contain p-2" />
 
-                            {/* Featured Badge */}
                             {isFeatured ? (
                               <span className="absolute top-2 left-2 bg-[#00e8ff] text-black text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded font-opensauce">
                                 ★ Principal
@@ -314,7 +451,6 @@ export default function ProductFormClient({
                               </button>
                             )}
 
-                            {/* Remove Action */}
                             <button
                               type="button"
                               onClick={() => handleRemoveImage(idx)}
@@ -333,19 +469,247 @@ export default function ProductFormClient({
                 )}
               </div>
 
-              {/* CARD 3: PRECIOS */}
+              {/* ----------------------------------------------------------------- */}
+              {/* CARD 7: VARIANTES DE PRODUCTO (SHOPIFY STYLE DYNAMIC TABLE) */}
+              {/* ----------------------------------------------------------------- */}
+              <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl">
+                <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-bold uppercase tracking-wider font-opensauce text-white flex items-center gap-2">
+                      <span className="text-[#00e8ff]">🎨</span> Variantes de Producto
+                    </h3>
+                    <span className="bg-zinc-900 border border-zinc-800 text-[#00e8ff] text-[9px] font-extrabold uppercase px-2.5 py-0.5 rounded-full font-mono">
+                      {variantsList.length} combinaciones
+                    </span>
+                  </div>
+
+                  {/* Enable/Disable Variants Toggle */}
+                  <label className="flex items-center gap-2 cursor-pointer font-opensauce text-xs text-zinc-400">
+                    <input
+                      type="checkbox"
+                      checked={hasVariants}
+                      onChange={(e) => setHasVariants(e.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-800 bg-black text-[#00e8ff] focus:ring-[#00e8ff]"
+                    />
+                    <span>Este producto tiene opciones (Color, Tamaño, etc.)</span>
+                  </label>
+                </div>
+
+                {hasVariants && (
+                  <div className="space-y-6">
+                    
+                    {/* Option Managers List */}
+                    <div className="space-y-4 font-opensauce">
+                      <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                        Opciones de Variante (Color, Tamaño, Material):
+                      </label>
+
+                      {options.map((option, optIdx) => (
+                        <div
+                          key={option.id}
+                          className="p-4 rounded-xl bg-black border border-zinc-850 space-y-3 relative group"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="w-1/3">
+                              <label className="text-[10px] text-zinc-500 uppercase font-bold">
+                                Nombre de Opción #{optIdx + 1}
+                              </label>
+                              <input
+                                type="text"
+                                value={option.name}
+                                onChange={(e) => handleOptionNameChange(option.id, e.target.value)}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#00e8ff]"
+                                placeholder="Ej: Color, Tamaño..."
+                              />
+                            </div>
+
+                            {/* Add Option Value Input */}
+                            <div className="flex-1">
+                              <label className="text-[10px] text-zinc-500 uppercase font-bold">
+                                Añadir Valor para &ldquo;{option.name || `Opción ${optIdx + 1}`}&rdquo;
+                              </label>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={newValInputs[option.id] || ''}
+                                  onChange={(e) =>
+                                    setNewValInputs({ ...newValInputs, [option.id]: e.target.value })
+                                  }
+                                  onKeyDown={(e) =>
+                                    e.key === 'Enter' &&
+                                    (e.preventDefault(), handleAddValueToOption(option.id))
+                                  }
+                                  className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#00e8ff]"
+                                  placeholder="Ej: Negro Matte, Standard (66x91mm)..."
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddValueToOption(option.id)}
+                                  className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 text-[#00e8ff] hover:bg-[#00e8ff] hover:text-black font-bold text-xs rounded-lg transition-colors"
+                                >
+                                  + Agregar
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Remove Option Group */}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveOption(option.id)}
+                              className="text-zinc-600 hover:text-red-400 p-1.5 rounded-lg hover:bg-zinc-900 transition-colors self-end"
+                              title="Eliminar esta opción"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 me-.562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                              </svg>
+                            </button>
+                          </div>
+
+                          {/* Values Pill Chips */}
+                          {option.values.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-2 border-t border-zinc-900">
+                              {option.values.map((val, valIdx) => (
+                                <span
+                                  key={valIdx}
+                                  className="inline-flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 text-white text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                                >
+                                  <span>{val}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveValueFromOption(option.id, val)}
+                                    className="text-zinc-500 hover:text-red-400"
+                                  >
+                                    ✕
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Add Another Option Button */}
+                      <button
+                        type="button"
+                        onClick={handleAddOption}
+                        className="w-full py-2.5 border border-dashed border-zinc-800 hover:border-[#00e8ff] rounded-xl text-zinc-400 hover:text-[#00e8ff] text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        <span>+ Agregar otra opción de variante (ej: Material)</span>
+                      </button>
+                    </div>
+
+                    {/* DYNAMIC VARIANTS TABLE */}
+                    {variantsList.length > 0 && (
+                      <div className="space-y-3 pt-4 border-t border-zinc-900 font-opensauce">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                            Tabla de Variantes Generadas ({variantsList.length}):
+                          </label>
+                          <span className="text-[10px] text-zinc-500 font-inter">
+                            Define precio, SKU y stock independiente para cada combinación
+                          </span>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-xl border border-zinc-850 bg-black">
+                          <table className="w-full border-collapse text-left text-xs text-zinc-300">
+                            <thead className="bg-zinc-950 text-[10px] uppercase font-bold tracking-wider text-zinc-500 border-b border-zinc-850">
+                              <tr>
+                                <th className="px-4 py-3">Variante</th>
+                                <th className="px-4 py-3">Precio (S/.)</th>
+                                <th className="px-4 py-3">SKU</th>
+                                <th className="px-4 py-3">Stock</th>
+                                <th className="px-4 py-3 text-center">Acción</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-900">
+                              {variantsList.map((variant) => (
+                                <tr key={variant.id} className="hover:bg-zinc-900/40 transition-colors">
+                                  {/* Variant Title */}
+                                  <td className="px-4 py-3 font-semibold text-white">
+                                    <div className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-[#00e8ff]" />
+                                      <span>{variant.title}</span>
+                                    </div>
+                                  </td>
+
+                                  {/* Independent Price */}
+                                  <td className="px-4 py-3">
+                                    <div className="relative w-24">
+                                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-[10px]">S/.</span>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        value={variant.price}
+                                        onChange={(e) =>
+                                          handleVariantFieldChange(variant.id, 'price', e.target.value)
+                                        }
+                                        className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 pl-6 py-1 text-xs text-white font-mono focus:outline-none focus:border-[#00e8ff]"
+                                      />
+                                    </div>
+                                  </td>
+
+                                  {/* Independent SKU */}
+                                  <td className="px-4 py-3">
+                                    <input
+                                      type="text"
+                                      value={variant.sku}
+                                      onChange={(e) =>
+                                        handleVariantFieldChange(variant.id, 'sku', e.target.value)
+                                      }
+                                      className="w-32 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-zinc-200 font-mono focus:outline-none focus:border-[#00e8ff]"
+                                    />
+                                  </td>
+
+                                  {/* Independent Stock */}
+                                  <td className="px-4 py-3">
+                                    <input
+                                      type="number"
+                                      value={variant.stock}
+                                      onChange={(e) =>
+                                        handleVariantFieldChange(variant.id, 'stock', e.target.value)
+                                      }
+                                      className="w-16 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-white text-center font-bold focus:outline-none focus:border-[#00e8ff]"
+                                    />
+                                  </td>
+
+                                  {/* Delete Row Action */}
+                                  <td className="px-4 py-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveVariantRow(variant.id)}
+                                      className="text-zinc-600 hover:text-red-400 p-1 transition-colors"
+                                      title="Eliminar variante"
+                                    >
+                                      ✕
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                )}
+              </div>
+
+              {/* CARD 4: PRECIOS GENERALES */}
               <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl">
                 <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider font-opensauce text-white flex items-center gap-2">
-                    <span className="text-[#00e8ff]">💵</span> Precios & Ofertas
+                    <span className="text-[#00e8ff]">💵</span> Precios Base
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Selling Price */}
                   <div className="space-y-1.5 font-opensauce">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                      Precio de Venta (S/.) *
+                      Precio Base (S/.) *
                     </label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold text-sm">S/.</span>
@@ -361,7 +725,6 @@ export default function ProductFormClient({
                     </div>
                   </div>
 
-                  {/* Compare Price */}
                   <div className="space-y-1.5 font-opensauce">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                       Precio de Comparación (S/.)
@@ -377,36 +740,22 @@ export default function ProductFormClient({
                         placeholder="30.00"
                       />
                     </div>
-                    <p className="text-[10px] text-zinc-500 font-inter">
-                      Para mostrar el precio tachado y destacar un descuento en la tienda.
-                    </p>
                   </div>
                 </div>
-
-                {/* Discount Badge Preview */}
-                {Number(formData.comparePrice) > Number(formData.price) && Number(formData.price) > 0 && (
-                  <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-900/60 flex items-center justify-between text-xs text-emerald-400 font-opensauce">
-                    <span className="font-bold">✨ Oferta activa detectada:</span>
-                    <span className="font-extrabold bg-emerald-900/80 px-2.5 py-0.5 rounded text-[10px] uppercase">
-                      Descuento del {Math.round(((Number(formData.comparePrice) - Number(formData.price)) / Number(formData.comparePrice)) * 100)}%
-                    </span>
-                  </div>
-                )}
               </div>
 
-              {/* CARD 4: INVENTARIO */}
+              {/* CARD 5: INVENTARIO BASE */}
               <div className="rounded-2xl border border-zinc-850 bg-zinc-950/80 p-6 space-y-6 backdrop-blur-md shadow-xl">
                 <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider font-opensauce text-white flex items-center gap-2">
-                    <span className="text-[#00e8ff]">📦</span> Inventario & Seguimiento
+                    <span className="text-[#00e8ff]">📦</span> Inventario Base
                   </h3>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* SKU */}
                   <div className="space-y-1.5 font-opensauce">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                      SKU (Código Interno)
+                      SKU Principal
                     </label>
                     <input
                       type="text"
@@ -417,10 +766,9 @@ export default function ProductFormClient({
                     />
                   </div>
 
-                  {/* Barcode */}
                   <div className="space-y-1.5 font-opensauce">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                      Código de Barras (UPC/GTIN)
+                      Código de Barras
                     </label>
                     <input
                       type="text"
@@ -431,10 +779,9 @@ export default function ProductFormClient({
                     />
                   </div>
 
-                  {/* Stock Units */}
                   <div className="space-y-1.5 font-opensauce">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                      Cantidad Disponible *
+                      Stock Total *
                     </label>
                     <input
                       type="number"
@@ -445,29 +792,6 @@ export default function ProductFormClient({
                       placeholder="100"
                     />
                   </div>
-                </div>
-
-                {/* Stock Behavior Checkboxes */}
-                <div className="space-y-3 border-t border-zinc-900 pt-4 font-opensauce text-xs">
-                  <label className="flex items-center gap-3 text-zinc-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.trackStock}
-                      onChange={(e) => setFormData({ ...formData, trackStock: e.target.checked })}
-                      className="h-4 w-4 rounded border-zinc-800 bg-black text-[#00e8ff] focus:ring-[#00e8ff]"
-                    />
-                    <span>Rastrear cantidad de stock automáticamente</span>
-                  </label>
-
-                  <label className="flex items-center gap-3 text-zinc-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.continueSellingOutOfStock}
-                      onChange={(e) => setFormData({ ...formData, continueSellingOutOfStock: e.target.checked })}
-                      className="h-4 w-4 rounded border-zinc-800 bg-black text-[#00e8ff] focus:ring-[#00e8ff]"
-                    />
-                    <span>Continuar vendiendo cuando este producto no tenga stock (Pre-orden)</span>
-                  </label>
                 </div>
               </div>
 
@@ -484,7 +808,6 @@ export default function ProductFormClient({
                   </h3>
                 </div>
 
-                {/* Category Select */}
                 <div className="space-y-1.5 font-opensauce">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Categoría del Producto *
@@ -502,7 +825,6 @@ export default function ProductFormClient({
                   </select>
                 </div>
 
-                {/* Product Type */}
                 <div className="space-y-1.5 font-opensauce">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Tipo de Producto
@@ -540,7 +862,6 @@ export default function ProductFormClient({
                     </button>
                   </div>
 
-                  {/* Active Tags List */}
                   <div className="flex flex-wrap gap-2 pt-1">
                     {formData.tags.map((tag: string, idx: number) => (
                       <span
@@ -569,7 +890,6 @@ export default function ProductFormClient({
                   </h3>
                 </div>
 
-                {/* Google Snippet Live Preview */}
                 <div className="p-4 rounded-xl bg-black border border-zinc-850 space-y-1">
                   <p className="text-[10px] text-emerald-400 font-mono line-clamp-1">
                     https://gosu.pe › shop › {formData.titleEs.toLowerCase().replace(/\s+/g, '-')}
@@ -582,7 +902,6 @@ export default function ProductFormClient({
                   </p>
                 </div>
 
-                {/* SEO Title */}
                 <div className="space-y-1.5 font-opensauce">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Título para Buscadores
@@ -596,7 +915,6 @@ export default function ProductFormClient({
                   />
                 </div>
 
-                {/* SEO Description */}
                 <div className="space-y-1.5 font-opensauce">
                   <div className="flex justify-between">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
