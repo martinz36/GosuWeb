@@ -130,14 +130,14 @@ model ItemOrden {
   variante       Variante @relation(fields: [varianteId], references: [id], onDelete: Restrict)
 }
 
-// PROGRAMA DE AFILIADOS (AFFILIATE MARKETING MODULE)
+// PROGRAMA DE AFILIADOS
 model Affiliate {
   id             String         @id @default(cuid())
   name           String
   email          String         @unique
   passwordHash   String?
   code           String         @unique // Ej: "GOSU-CARLOS"
-  commissionRate Decimal        @default(10.00) @db.Decimal(5, 2) // Porcentaje ej: 10.00%
+  commissionRate Decimal        @default(10.00) @db.Decimal(5, 2)
   balancePending Decimal        @default(0.00) @db.Decimal(10, 2)
   balancePaid    Decimal        @default(0.00) @db.Decimal(10, 2)
   paymentInfo    String?        // Yape, Plin, CCI, Banco
@@ -162,4 +162,30 @@ model ReferralSale {
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// STORE SETTINGS & PAYMENT GATEWAYS (MERCADO PAGO, STRIPE, CULQI)
+model StoreSettings {
+  id                   String   @id @default("default")
+  
+  // Mercado Pago Perú
+  mercadoPagoActive    Boolean  @default(false)
+  mercadoPagoMode      String   @default("sandbox") // "sandbox" | "production"
+  mpPublicSandboxKey   String?
+  mpAccessSandboxToken String?
+  mpPublicProdKey      String?
+  mpAccessProdToken    String?
+
+  // Stripe (Futuro)
+  stripeActive         Boolean  @default(false)
+  stripeMode           String   @default("sandbox") // "sandbox" | "production"
+  stripePublishableKey String?
+  stripeSecretKey      String?
+
+  // Culqi (Pasarela Actual)
+  culqiActive          Boolean  @default(true)
+  culqiPublicKey       String?
+  culqiSecretKey       String?
+
+  updatedAt            DateTime @updatedAt
 }

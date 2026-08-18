@@ -37,7 +37,7 @@ export const orderItems = sqliteTable('order_items', {
   price: real('price').notNull(),
 });
 
-// PROGRAMA DE AFILIADOS (Drizzle Schema)
+// PROGRAMA DE AFILIADOS
 export const affiliates = sqliteTable('affiliates', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -61,4 +61,30 @@ export const referralSales = sqliteTable('referral_sales', {
   commission: real('commission').notNull(),
   status: text('status').notNull().default('pending'), // 'pending' | 'paid'
   createdAt: integer('created_at').notNull(),
+});
+
+// STORE SETTINGS & PAYMENT GATEWAYS
+export const storeSettings = sqliteTable('store_settings', {
+  id: text('id').primaryKey().default('default'),
+  
+  // Mercado Pago Perú
+  mercadoPagoActive: integer('mercado_pago_active', { mode: 'boolean' }).notNull().default(false),
+  mercadoPagoMode: text('mercado_pago_mode').notNull().default('sandbox'),
+  mpPublicSandboxKey: text('mp_public_sandbox_key'),
+  mpAccessSandboxToken: text('mp_access_sandbox_token'),
+  mpPublicProdKey: text('mp_public_prod_key'),
+  mpAccessProdToken: text('mp_access_prod_token'),
+
+  // Stripe
+  stripeActive: integer('stripe_active', { mode: 'boolean' }).notNull().default(false),
+  stripeMode: text('stripe_mode').notNull().default('sandbox'),
+  stripePublishableKey: text('stripe_publishable_key'),
+  stripeSecretKey: text('stripe_secret_key'),
+
+  // Culqi
+  culqiActive: integer('culqi_active', { mode: 'boolean' }).notNull().default(true),
+  culqiPublicKey: text('culqi_public_key'),
+  culqiSecretKey: text('culqi_secret_key'),
+
+  updatedAt: integer('updated_at').notNull(),
 });
